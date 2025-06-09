@@ -214,7 +214,10 @@ class GomokuGame:
                 f.write(str(result))
         except Exception as e:
             print(f"保存结果失败: {e}")
-    
+        
+        # 设置游戏结束标志，让游戏循环知道需要退出
+        self.game_should_end = True
+
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
         
@@ -319,11 +322,20 @@ class GomokuGame:
         self.start_game()
         
         ai_think_delay = 0  # AI思考延迟计数器，用于模拟AI思考时间
+        self.game_should_end = False  # 游戏结束标志
+        game_end_display_time = 0  # 游戏结束后的显示时间
         
         while self.running:
             # 处理所有pygame事件（键盘、鼠标、窗口等）
             if not self._handle_events():
                 break  # 如果返回False则退出游戏循环
+            
+            # 检查游戏是否应该结束
+            if self.game_should_end:
+                # 显示游戏结果一段时间后自动返回菜单
+                game_end_display_time += 1
+                if game_end_display_time > 180:  # 显示3秒（180帧 / 60FPS）
+                    break  # 退出游戏循环，返回主菜单
             
             # AI回合处理
             if (self.game_active and 
@@ -343,7 +355,7 @@ class GomokuGame:
             
             # 控制游戏帧率为60FPS
             self.clock.tick(60)
-    
+
     def show_result(self):
         """显示游戏结果 - 调用UI模块显示胜负结果"""
         
@@ -368,8 +380,9 @@ class GomokuGame:
                     # 开始游戏：进入游戏主循环
                     self.run_game_loop()
                     
-                    # 游戏结束后显示结果
-                    self.show_result()
+                    # 游戏结束后自动显示结果
+                    if hasattr(self, 'game_should_end') and self.game_should_end:
+                        self.show_result()
                     
                 elif choice == "settings":
                     # 设置菜单（功能预留，暂未实现）
