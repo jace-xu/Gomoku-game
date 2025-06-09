@@ -43,7 +43,7 @@ class StartMenu:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.screen = pygame.display.set_mode((screen_width, screen_height))
-        pygame.display.set_caption("五子棋游戏开始菜单")
+        pygame.display.set_caption("Gomoku Game Start Menu")
         
         # 加载支持中文的字体
         try:
@@ -52,8 +52,8 @@ class StartMenu:
             self.font = pygame.font.Font(None, 36)
         
         # 创建按钮
-        self.start_button = Button("开始游戏", 300, 200, 200, 50, GRAY, WHITE, self.font)
-        self.settings_button = Button("设置选项", 300, 300, 200, 50, GRAY, WHITE, self.font)
+        self.start_button = Button("Start Game", 300, 200, 200, 50, GRAY, WHITE, self.font)
+        self.settings_button = Button("Settings", 300, 300, 200, 50, GRAY, WHITE, self.font)
         
         self.running = True
         self.choice = None
@@ -96,7 +96,7 @@ class ResultMenu:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.screen = pygame.display.set_mode((screen_width, screen_height))
-        pygame.display.set_caption("结算菜单")
+        pygame.display.set_caption("Game Result")
         
         # 加载支持中文的字体
         try:
@@ -110,7 +110,7 @@ class ResultMenu:
             with open(filename, "r") as file:
                 return int(file.read().strip())
         else:
-            raise FileNotFoundError("结果文件未找到")
+            raise FileNotFoundError("Result file not found")
 
     def show_result(self, result=None, filename="result.txt"):
         """显示结算结果"""
@@ -124,11 +124,11 @@ class ResultMenu:
 
         # 根据结果显示不同的文本
         if result == 0:
-            result_text = "失败！"
+            result_text = "Game Lost!"
         elif result == 1:
-            result_text = "成功！"
+            result_text = "Game Won!"
         else:
-            result_text = "未知结果"
+            result_text = "Unknown Result"
 
         # 渲染文本
         text_surface = self.font.render(result_text, True, WHITE)
