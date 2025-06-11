@@ -1,4 +1,5 @@
 import pygame
+import os
 
 class BoardUI:
     def __init__(self, screen, board_size=15, grid_size=40, margin=None, background_color=(255, 255, 255)):
@@ -34,29 +35,6 @@ class BoardUI:
         self.background_music = None
         self.piece_sound = None
 
-    def set_background_music(self, music_file):
-        self.background_music = music_file
-        try:
-            pygame.mixer.music.load(self.background_music)
-            pygame.mixer.music.play(-1)  # 循环播放
-            print("背景音乐加载成功并开始播放！")
-        except Exception as e:
-            print(f"背景音乐加载失败: {e}")
-
-    def set_piece_sound(self, sound_file):
-        try:
-            self.piece_sound = pygame.mixer.Sound(sound_file)
-            if self.piece_sound is None:
-                print("音效加载失败，请检查文件路径和格式！")
-            else:
-                print("落子音效加载成功！")
-        except Exception as e:
-            print(f"加载音效失败: {e}")
-
-    def play_piece_sound(self):
-        if self.piece_sound:
-            self.piece_sound.play()
-
         # 按钮相关
         self.button_color = (100, 100, 100)  # 按钮颜色
         self.button_text_color = (255, 255, 255)  # 按钮文字颜色
@@ -68,6 +46,68 @@ class BoardUI:
         # 按钮位置
         self.undo_button_rect = None
         self.settings_button_rect = None
+
+    def set_background_music(self, music_file):
+        """
+        设置并播放背景音乐。
+
+        :param music_file: 背景音乐文件路径
+        """
+        self.background_music = music_file
+        try:
+            # 获取相对路径
+            if not os.path.isabs(music_file):
+                music_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), music_file)
+            
+            pygame.mixer.music.load(music_file)
+            pygame.mixer.music.play(-1)  # 循环播放
+            print("背景音乐加载成功并开始播放！")
+        except Exception as e:
+            print(f"背景音乐加载失败: {e}")
+
+    def set_piece_sound(self, sound_file):
+        """
+        设置落子音效。
+
+        :param sound_file: 落子音效文件路径
+        """
+        try:
+            # 获取相对路径
+            if not os.path.isabs(sound_file):
+                sound_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), sound_file)
+            
+            self.piece_sound = pygame.mixer.Sound(sound_file)
+            if self.piece_sound is None:
+                print("音效加载失败，请检查文件路径和格式！")
+            else:
+                print("落子音效加载成功！")
+        except Exception as e:
+            print(f"加载音效失败: {e}")
+
+    def play_piece_sound(self):
+        """
+        播放落子音效
+        """
+        if self.piece_sound:
+            self.piece_sound.play()
+
+    def stop_background_music(self):
+        """
+        停止背景音乐
+        """
+        pygame.mixer.music.stop()
+
+    def pause_background_music(self):
+        """
+        暂停背景音乐
+        """
+        pygame.mixer.music.pause()
+
+    def unpause_background_music(self):
+        """
+        恢复背景音乐
+        """
+        pygame.mixer.music.unpause()
 
     def get_required_size(self):
         """
@@ -240,49 +280,6 @@ class BoardUI:
     def update_display(self):
         """更新显示"""
         pygame.display.flip()
-
-    def set_background_music(self, music_file):
-        """
-        设置背景音乐。
-
-        :param music_file: 背景音乐文件路径
-        """
-        self.background_music = music_file
-        pygame.mixer.music.load(self.background_music)
-        pygame.mixer.music.play(-1)  # 循环播放
-
-    def set_piece_sound(self, sound_file):
-        """
-        设置落子音效。
-
-        :param sound_file: 落子音效文件路径
-        """
-        self.piece_sound = pygame.mixer.Sound(sound_file)
-
-    def play_piece_sound(self):
-        """
-        播放落子音效
-        """
-        if self.piece_sound:
-            self.piece_sound.play()
-
-    def stop_background_music(self):
-        """
-        停止背景音乐
-        """
-        pygame.mixer.music.stop()
-
-    def pause_background_music(self):
-        """
-        暂停背景音乐
-        """
-        pygame.mixer.music.pause()
-
-    def unpause_background_music(self):
-        """
-        恢复背景音乐
-        """
-        pygame.mixer.music.unpause()
 
     def draw_buttons(self):
         """

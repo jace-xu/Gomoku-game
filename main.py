@@ -100,7 +100,19 @@ class GomokuGame:
             margin=margin,
             background_color=(240, 217, 181)  # 木制棋盘的暖色调
         )
+        
+        # 初始化音频
+        self._init_audio()
     
+    def _init_audio(self):
+        """初始化游戏音频"""
+        try:
+            # 设置背景音乐和落子音效（使用相对路径）
+            self.board_ui.set_background_music("assets/board_bgm.mp3")
+            self.board_ui.set_piece_sound("assets/piece_sound.mp3")
+        except Exception as e:
+            print(f"音频初始化失败: {e}")
+
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
         
@@ -138,6 +150,9 @@ class GomokuGame:
         # 返回True表示落子成功，False表示位置无效或已被占用
         if self.board_state.move(x, y):
             print(f"人类玩家在 ({x}, {y}) 落子")
+            
+            # 播放落子音效
+            self.board_ui.play_piece_sound()
             
             # BoardState.get_board_copy() - 获取当前棋盘状态的副本
             # GomokuAI.set_board_state() - 更新AI的内部棋盘状态，保持与游戏状态同步
@@ -178,6 +193,9 @@ class GomokuGame:
         # 调用BoardState.move()让AI落子
         if self.board_state.move(x, y):
             print(f"AI在 ({x}, {y}) 落子")
+            
+            # 播放落子音效
+            self.board_ui.play_piece_sound()
             
             # 检查AI落子后游戏是否结束
             if self.board_state.is_game_over():
