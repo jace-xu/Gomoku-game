@@ -1,4 +1,5 @@
 import pygame
+import os
 
 class BoardUI:
     def __init__(self, screen, board_size=15, grid_size=40, margin=None, background_color=(255, 255, 255)):
@@ -28,6 +29,85 @@ class BoardUI:
         self.black_piece_color = (0, 0, 0)
         self.white_piece_color = (255, 255, 255)
         self.piece_border_color = (0, 0, 0)
+
+        # 初始化音频
+        pygame.mixer.init()
+        self.background_music = None
+        self.piece_sound = None
+
+        # 按钮相关
+        self.button_color = (100, 100, 100)  # 按钮颜色
+        self.button_text_color = (255, 255, 255)  # 按钮文字颜色
+        self.button_font = pygame.font.Font(None, 24)  # 按钮字体
+        self.button_width = 100  # 按钮宽度
+        self.button_height = 40  # 按钮高度
+        self.button_margin = 10  # 按钮间距
+
+        # 按钮位置
+        self.undo_button_rect = None
+        self.settings_button_rect = None
+
+    def set_background_music(self, music_file):
+        """
+        设置并播放背景音乐。
+
+        :param music_file: 背景音乐文件路径
+        """
+        self.background_music = music_file
+        try:
+            # 获取相对路径
+            if not os.path.isabs(music_file):
+                music_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), music_file)
+            
+            pygame.mixer.music.load(music_file)
+            pygame.mixer.music.play(-1)  # 循环播放
+            print("背景音乐加载成功并开始播放！")
+        except Exception as e:
+            print(f"背景音乐加载失败: {e}")
+
+    def set_piece_sound(self, sound_file):
+        """
+        设置落子音效。
+
+        :param sound_file: 落子音效文件路径
+        """
+        try:
+            # 获取相对路径
+            if not os.path.isabs(sound_file):
+                sound_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), sound_file)
+            
+            self.piece_sound = pygame.mixer.Sound(sound_file)
+            if self.piece_sound is None:
+                print("音效加载失败，请检查文件路径和格式！")
+            else:
+                print("落子音效加载成功！")
+        except Exception as e:
+            print(f"加载音效失败: {e}")
+
+    def play_piece_sound(self):
+        """
+        播放落子音效
+        """
+        if self.piece_sound:
+            self.piece_sound.play()
+
+    def stop_background_music(self):
+        """
+        停止背景音乐
+        """
+        pygame.mixer.music.stop()
+
+    def pause_background_music(self):
+        """
+        暂停背景音乐
+        """
+        pygame.mixer.music.pause()
+
+    def unpause_background_music(self):
+        """
+        恢复背景音乐
+        """
+        pygame.mixer.music.unpause()
 
     def get_required_size(self):
         """
@@ -200,3 +280,37 @@ class BoardUI:
     def update_display(self):
         """更新显示"""
         pygame.display.flip()
+
+    def draw_buttons(self):
+        """
+        绘制悔棋和设置按钮
+        """
+        # 计算按钮位置
+        button_x = self.total_width + self.margin
+        undo_button_y = self.margin
+        settings_button_y = undo_button_y + self.button_height + self.button_margin
+
+        # 绘制悔棋按钮
+        self.undo_button_rect = pygame.Rect(button_x, undo_button_y, self.button_width, self.button_height)
+        pygame.draw.rect(self.screen, self.button_color, self.undo_button_rect)
+        undo_text = self.button_font.render("悔棋", True, self.button_text_color)
+        self.screen.blit(undo_text, (button_x + 20, undo_button_y + 10))
+
+        # 绘制设置按钮
+        self.settings_button_rect = pygame.Rect(button_x, settings_button_y, self.button_width, self.button_height)
+        pygame.draw.rect(self.screen, self.button_color, self.settings_button_rect)
+        settings_text = self.button_font.render("设置", True, self.button_text_color)
+        self.screen.blit(settings_text, (button_x + 20, settings_button_y + 10))
+
+    def check_button_click(self, mouse_pos):
+        """
+        检测按钮点击事件
+
+        :param mouse_pos: 鼠标点击位置
+        :return: 按钮名称（"undo" 或 "settings"），如果没有点击按钮则返回 None
+        """
+        if self.undo_button_rect and self.undo_button_rect.collidepoint(mouse_pos):
+            return "undo"
+        elif self.settings_button_rect and self.settings_button_rect.collidepoint(mouse_pos):
+            return "settings"
+        return None
