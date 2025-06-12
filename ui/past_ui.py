@@ -11,6 +11,33 @@ BG_COLOR = (245, 245, 245)
 FONT_COLOR = (30, 30, 30)
 SCROLL_SPEED = 30  # 滚动时每次移动的像素数
 
+class Button:
+    """简单的按钮类"""
+    def __init__(self, text, x, y, width, height, color=(100, 100, 100), text_color=(255, 255, 255)):
+        self.text = text
+        self.rect = pygame.Rect(x, y, width, height)
+        self.color = color
+        self.text_color = text_color
+        self.font = pygame.font.Font(None, 24)
+        self.hover = False
+        
+    def draw(self, screen):
+        # 悬停效果
+        current_color = tuple(min(255, c + 30) for c in self.color) if self.hover else self.color
+        pygame.draw.rect(screen, current_color, self.rect)
+        pygame.draw.rect(screen, (0, 0, 0), self.rect, 2)  # 边框
+        
+        text_surface = self.font.render(self.text, True, self.text_color)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+    
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEMOTION:
+            self.hover = self.rect.collidepoint(event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN and self.hover and event.button == 1:
+            return True
+        return False
+
 class HistoryUI:
     """
     历史对局记录界面类，实现历史数据加载、浏览和对局快照绘制功能，
@@ -31,6 +58,9 @@ class HistoryUI:
         self.scroll_offset = 0                              # 当前滚动偏移
         self.item_height = 130                              # 每条历史快照高度
         self.margin = 18                                    # 快照之间的间距
+        
+        # 创建返回按钮
+        self.return_button = Button("Back", 10, 10, 100, 40, (70, 130, 180))
 
     @staticmethod
     def load_history_data() -> List[Dict]:
@@ -77,7 +107,7 @@ class HistoryUI:
             title = self.font.render("历史对局记录", True, FONT_COLOR)
             self.screen.blit(title, (screen_width // 2 - title.get_width() // 2, 20))
 
-            # 事件处理：退出、滚动
+            # 事件处理：退出、滚动、按钮点击
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -99,6 +129,10 @@ class HistoryUI:
                             self.scroll_offset + SCROLL_SPEED,
                             max(0, len(self.history_data) * self.item_height - (screen_height - 80))
                         )
+                
+                # 处理返回按钮点击
+                if self.return_button.handle_event(event):
+                    running = False
             
             # 显示历史记录数量
             if not self.history_data:
@@ -115,6 +149,13 @@ class HistoryUI:
                         except Exception as snapshot_exc:
                             error_text = self.small_font.render(f"快照显示异常: {snapshot_exc}", True, (200, 50, 50))
                             self.screen.blit(error_text, (item_rect.x + 10, item_rect.y + 40))
+            
+            # 绘制返回按钮
+            self.return_button.draw(self.screen)
+            
+            # 绘制操作提示
+            hint_text = self.small_font.render("提示: 使用方向键或鼠标滚轮滚动，ESC或点击返回按钮退出", True, (100, 100, 100))
+            self.screen.blit(hint_text, (10, screen_height - 25))
             
             pygame.display.flip()
             clock.tick(60)

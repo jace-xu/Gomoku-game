@@ -256,6 +256,8 @@ class GomokuGame:
             # 运行历史记录界面
             history_ui.run()
             
+            # 历史记录界面退出后，不需要特殊处理，会自动返回主菜单循环
+            
         except Exception as e:
             print(f"显示历史记录失败: {e}")
             # 如果失败，创建临时屏幕显示错误信息
