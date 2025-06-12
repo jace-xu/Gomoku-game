@@ -1,6 +1,7 @@
 import pygame
 import sys
 import os
+import json
 
 # 初始化 pygame
 pygame.init()
@@ -194,35 +195,50 @@ class ResultMenu:
         except:
             self.font = pygame.font.Font(None, 36)
 
-    def read_result(self, filename="result.txt"):
+    def read_result(self, results_file=None):
         """
-        读取结果文件
+        从JSON文件读取最新的游戏结果
         
-        :param filename: 结果文件名
+        :param results_file: 结果文件路径，如果为None则使用默认路径
         :return: 结果值
         :raises: FileNotFoundError
         """
-        if not os.path.exists(filename):
-            raise FileNotFoundError(f"结果文件 {filename} 不存在")
+        if results_file is None:
+            # 使用相对路径
+            results_file = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), 
+                'game_database', 
+                'results.json'
+            )
+        
+        if not os.path.exists(results_file):
+            raise FileNotFoundError(f"结果文件 {results_file} 不存在")
         
         try:
-            with open(filename, "r", encoding='utf-8') as file:
-                return int(file.read().strip())
-        except ValueError:
-            raise ValueError("结果文件格式错误")
+            with open(results_file, "r", encoding='utf-8') as file:
+                results_data = json.load(file)
+                
+            if isinstance(results_data, list) and results_data:
+                # 返回最新（最后一个）结果
+                return results_data[-1]['result']
+            else:
+                raise ValueError("结果文件格式错误或为空")
+                
+        except json.JSONDecodeError:
+            raise ValueError("结果文件JSON格式错误")
 
-    def show_result(self, result=None, filename="result.txt", display_time=3000):
+    def show_result(self, result=None, results_file=None, display_time=3000):
         """
         显示结算结果
         
         :param result: 直接传入的结果值，如果为None则从文件读取
-        :param filename: 结果文件名
+        :param results_file: 结果文件路径
         :param display_time: 显示时间（毫秒）
         :return: bool，是否成功显示
         """
         try:
             if result is None:
-                result = self.read_result(filename)
+                result = self.read_result(results_file)
             
             # 根据结果显示不同的文本和颜色
             if result == 0:
@@ -277,17 +293,17 @@ class GameUI:
         self.start_menu = StartMenu(self.screen_width, self.screen_height, title)
         return self.start_menu.run()
 
-    def show_result_menu(self, result=None, filename="result.txt", display_time=3000):
+    def show_result_menu(self, result=None, results_file=None, display_time=3000):
         """
         显示结算菜单
         
         :param result: 直接传入的结果值
-        :param filename: 结果文件名
+        :param results_file: 结果文件路径
         :param display_time: 显示时间（毫秒）
         :return: bool，是否成功显示
         """
         self.result_menu = ResultMenu()
-        return self.result_menu.show_result(result, filename, display_time)
+        return self.result_menu.show_result(result, results_file, display_time)
 
     def quit(self):
         """退出游戏"""
