@@ -98,7 +98,7 @@ class StartMenu:
         button_width = 200
         button_height = 50
         button_spacing = 20
-        start_y = self.screen_height // 2 - 50
+        start_y = self.screen_height // 2 - 80
 
         self.buttons = [
             Button("Start Game", 
@@ -106,14 +106,19 @@ class StartMenu:
                    start_y, 
                    button_width, button_height, 
                    color=GREEN, font=self.font),
-            Button("Settings", 
+            Button("History", 
                    (self.screen_width - button_width) // 2, 
                    start_y + button_height + button_spacing, 
                    button_width, button_height, 
                    color=BLUE, font=self.font),
-            Button("Quit", 
+            Button("Settings", 
                    (self.screen_width - button_width) // 2, 
                    start_y + 2 * (button_height + button_spacing), 
+                   button_width, button_height, 
+                   color=BLUE, font=self.font),
+            Button("Quit", 
+                   (self.screen_width - button_width) // 2, 
+                   start_y + 3 * (button_height + button_spacing), 
                    button_width, button_height, 
                    color=RED, font=self.font)
         ]
@@ -122,7 +127,7 @@ class StartMenu:
         """
         运行开始菜单
         
-        :return: 用户选择 ("start", "settings", "quit")
+        :return: 用户选择 ("start", "history", "settings", "quit")
         """
         clock = pygame.time.Clock()
         
@@ -135,7 +140,7 @@ class StartMenu:
                 # 处理按钮事件
                 for i, button in enumerate(self.buttons):
                     if button.handle_event(event):
-                        choices = ["start", "settings", "quit"]
+                        choices = ["start", "history", "settings", "quit"]
                         self.choice = choices[i]
                         self.running = False
 
