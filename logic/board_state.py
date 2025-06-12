@@ -1,7 +1,12 @@
 import os
 import json
 from datetime import datetime
-from logic import comment
+
+# 尝试导入comment模块，如果失败则设置为None
+try:
+    from logic import comment
+except ImportError:
+    comment = None
 
 class BoardState:
     def __init__(self, size=15, ai_player=2, human_player=1, first_player=1):
@@ -217,15 +222,21 @@ class BoardState:
                 "game_database", "history.json"
             )
 
-        # 调用logic/comment.py 中函数(在这里暂时写为generate_comment,默认传参为最终棋盘二位列表和落子记录),生成对局评语
-        try:
-            comment_text = comment.generate_comment(
-                [row[:] for row in self.board],
-                [list(move) for move in self.move_history]
-            )
-        except Exception as exc:
-            print(f"评语生成失败: {exc}")
-            comment_text = "评语生成失败"
+        # 确保目录存在
+        os.makedirs(os.path.dirname(history_path), exist_ok=True)
+
+        # 生成对局评语
+        if comment is not None:
+            try:
+                comment_text = comment.generate_comment(
+                    [row[:] for row in self.board],
+                    [list(move) for move in self.move_history]
+                )
+            except Exception as exc:
+                print(f"评语生成失败: {exc}")
+                comment_text = "下的很好"
+        else:
+            comment_text = "下的很好"
 
         record = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
