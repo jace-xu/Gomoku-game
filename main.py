@@ -1,6 +1,8 @@
 import pygame
 import sys
 import os
+import json
+from datetime import datetime
 
 # 导入自定义模块
 from logic.board_state import BoardState  # 棋盘状态管理模块，负责棋盘逻辑和游戏规则
@@ -227,12 +229,8 @@ class GomokuGame:
             result = 2  # 平局（棋盘下满但无人获胜）
             print("平局！")
         
-        # 保存游戏结果到文件，供ResultMenu读取和显示
-        try:
-            with open("result.txt", "w", encoding='utf-8') as f:
-                f.write(str(result))
-        except Exception as e:
-            print(f"保存结果失败: {e}")
+        # 保存游戏结果到JSON文件
+        self._save_game_result(result)
         
         # 保存历史记录
         try:
@@ -243,6 +241,85 @@ class GomokuGame:
         
         # 设置游戏结束标志，让游戏循环知道需要退出
         self.game_should_end = True
+
+    def _save_game_result(self, result):
+        """
+        保存游戏结果到JSON文件
+        
+        :param result: 游戏结果 (0=AI获胜, 1=人类获胜, 2=平局)
+        """
+        try:
+            # 使用相对路径指向game_database目录
+            results_dir = os.path.join(os.path.dirname(__file__), 'game_database')
+            os.makedirs(results_dir, exist_ok=True)
+            
+            results_file = os.path.join(results_dir, 'results.json')
+            
+            # 创建结果记录
+            result_record = {
+                'result': result,
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'human_player': self.human_player,
+                'ai_player': self.ai_player,
+                'move_count': len(self.board_state.move_history)
+            }
+            
+            # 读取现有结果
+            results_data = []
+            if os.path.exists(results_file):
+                try:
+                    with open(results_file, 'r', encoding='utf-8') as f:
+                        results_data = json.load(f)
+                        if not isinstance(results_data, list):
+                            results_data = []
+                except (json.JSONDecodeError, IOError):
+                    results_data = []
+            
+            # 追加新结果
+            results_data.append(result_record)
+            
+            # 写回文件
+            with open(results_file, 'w', encoding='utf-8') as f:
+                json.dump(results_data, f, ensure_ascii=False, indent=2)
+            
+            print(f"游戏结果已保存到: {results_file}")
+            
+        except Exception as e:
+            print(f"保存游戏结果失败: {e}")
+
+    def show_result(self):
+        """显示游戏结果 - 调用UI模块显示胜负结果"""
+        
+        # 从JSON文件获取最新结果
+        latest_result = self._get_latest_result()
+        if latest_result is not None:
+            # GameUI.show_result_menu() - 显示结果窗口
+            # 参数：result直接传入结果值，display_time指定显示时长（毫秒）
+            self.game_ui.show_result_menu(result=latest_result, display_time=3000)
+
+    def _get_latest_result(self):
+        """
+        获取最新的游戏结果
+        
+        :return: int or None，最新的游戏结果
+        """
+        try:
+            results_file = os.path.join(os.path.dirname(__file__), 'game_database', 'results.json')
+            
+            if not os.path.exists(results_file):
+                return None
+            
+            with open(results_file, 'r', encoding='utf-8') as f:
+                results_data = json.load(f)
+                
+            if isinstance(results_data, list) and results_data:
+                # 返回最新（最后一个）结果
+                return results_data[-1]['result']
+                
+        except Exception as e:
+            print(f"读取游戏结果失败: {e}")
+        
+        return None
 
     def show_history(self):
         """显示历史对局记录"""
@@ -317,13 +394,37 @@ class GomokuGame:
     def show_result(self):
         """显示游戏结果 - 调用UI模块显示胜负结果"""
         
-        # 检查结果文件是否存在
-        if os.path.exists("result.txt"):
+        # 从JSON文件获取最新结果
+        latest_result = self._get_latest_result()
+        if latest_result is not None:
             # GameUI.show_result_menu() - 显示结果窗口
-            # 参数：display_time指定显示时长（毫秒）
-            # 该方法会读取result.txt文件并显示相应的结果文本
-            self.game_ui.show_result_menu(display_time=3000)
-    
+            # 参数：result直接传入结果值，display_time指定显示时长（毫秒）
+            self.game_ui.show_result_menu(result=latest_result, display_time=3000)
+
+    def _get_latest_result(self):
+        """
+        获取最新的游戏结果
+        
+        :return: int or None，最新的游戏结果
+        """
+        try:
+            results_file = os.path.join(os.path.dirname(__file__), 'game_database', 'results.json')
+            
+            if not os.path.exists(results_file):
+                return None
+            
+            with open(results_file, 'r', encoding='utf-8') as f:
+                results_data = json.load(f)
+                
+            if isinstance(results_data, list) and results_data:
+                # 返回最新（最后一个）结果
+                return results_data[-1]['result']
+                
+        except Exception as e:
+            print(f"读取游戏结果失败: {e}")
+        
+        return None
+
     def run(self):
         """运行游戏主程序 - 管理整个游戏的生命周期"""
         
