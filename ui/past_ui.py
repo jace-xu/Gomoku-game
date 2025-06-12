@@ -3,7 +3,7 @@ import json
 import pygame
 from typing import List, Dict
 
-# 历史记录文件路径（存储在项目的 game_database/history.json）
+# 历史记录文件路径（使用相对路径）
 HISTORY_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'game_database', 'history.json')
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -67,10 +67,15 @@ class HistoryUI:
         """
         running = True
         clock = pygame.time.Clock()
+        
+        # 获取当前屏幕尺寸
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        
         while running:
             self.screen.fill(BG_COLOR)
             title = self.font.render("历史对局记录", True, FONT_COLOR)
-            self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 20))
+            self.screen.blit(title, (screen_width // 2 - title.get_width() // 2, 20))
 
             # 事件处理：退出、滚动
             for event in pygame.event.get():
@@ -82,7 +87,7 @@ class HistoryUI:
                     elif event.key == pygame.K_DOWN:
                         self.scroll_offset = min(
                             self.scroll_offset + SCROLL_SPEED,
-                            max(0, len(self.history_data) * self.item_height - (SCREEN_HEIGHT - 80))
+                            max(0, len(self.history_data) * self.item_height - (screen_height - 80))
                         )
                     elif event.key == pygame.K_UP:
                         self.scroll_offset = max(self.scroll_offset - SCROLL_SPEED, 0)
@@ -92,18 +97,25 @@ class HistoryUI:
                     elif event.button == 5:  # 滚轮下
                         self.scroll_offset = min(
                             self.scroll_offset + SCROLL_SPEED,
-                            max(0, len(self.history_data) * self.item_height - (SCREEN_HEIGHT - 80))
+                            max(0, len(self.history_data) * self.item_height - (screen_height - 80))
                         )
-            # 绘制每场对局快照
-            start_y = 70 - self.scroll_offset
-            for i, match in enumerate(self.history_data):
-                item_rect = pygame.Rect(40, start_y + i*self.item_height, SCREEN_WIDTH-80, self.item_height - self.margin)
-                if item_rect.bottom > 60 and item_rect.top < SCREEN_HEIGHT:
-                    try:
-                        self.draw_match_snapshot(match, item_rect)
-                    except Exception as snapshot_exc:
-                        error_text = self.small_font.render(f"快照显示异常: {snapshot_exc}", True, (200, 50, 50))
-                        self.screen.blit(error_text, (item_rect.x + 10, item_rect.y + 40))
+            
+            # 显示历史记录数量
+            if not self.history_data:
+                no_data_text = self.font.render("暂无历史记录", True, FONT_COLOR)
+                self.screen.blit(no_data_text, (screen_width // 2 - no_data_text.get_width() // 2, screen_height // 2))
+            else:
+                # 绘制每场对局快照
+                start_y = 70 - self.scroll_offset
+                for i, match in enumerate(self.history_data):
+                    item_rect = pygame.Rect(40, start_y + i*self.item_height, screen_width-80, self.item_height - self.margin)
+                    if item_rect.bottom > 60 and item_rect.top < screen_height:
+                        try:
+                            self.draw_match_snapshot(match, item_rect)
+                        except Exception as snapshot_exc:
+                            error_text = self.small_font.render(f"快照显示异常: {snapshot_exc}", True, (200, 50, 50))
+                            self.screen.blit(error_text, (item_rect.x + 10, item_rect.y + 40))
+            
             pygame.display.flip()
             clock.tick(60)
 

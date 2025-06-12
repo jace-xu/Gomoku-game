@@ -215,7 +215,7 @@ class BoardState:
 
         :return:None
         """
-        # 如果未指定路径，则默认存储到 Gomoku_game/game_database/history.json
+        # 如果未指定路径，则默认存储到相对路径的 game_database 目录
         if history_path is None:
             history_path = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

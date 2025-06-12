@@ -7,6 +7,7 @@ from logic.board_state import BoardState  # 棋盘状态管理模块，负责棋
 from logic.move_logic import GomokuAI     # AI决策模块，负责AI下棋策略
 from ui.menu_ui import GameUI             # 游戏UI管理模块，负责菜单显示
 from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制和交互
+from ui.past_ui import HistoryUI          # 历史记录UI模块
 
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
@@ -233,8 +234,136 @@ class GomokuGame:
         except Exception as e:
             print(f"保存结果失败: {e}")
         
+        # 保存历史记录
+        try:
+            self.board_state.save_to_history()
+            print("游戏记录已保存到历史数据库")
+        except Exception as e:
+            print(f"保存历史记录失败: {e}")
+        
         # 设置游戏结束标志，让游戏循环知道需要退出
         self.game_should_end = True
+
+    def show_history(self):
+        """显示历史对局记录"""
+        try:
+            # 确保游戏屏幕已初始化
+            if self.screen is None:
+                self._init_game_screen()
+            
+            # 创建历史记录UI实例
+            history_ui = HistoryUI(self.screen)
+            # 运行历史记录界面
+            history_ui.run()
+            
+        except Exception as e:
+            print(f"显示历史记录失败: {e}")
+            # 如果失败，创建临时屏幕显示错误信息
+            temp_screen = pygame.display.set_mode((800, 600))
+            temp_screen.fill((255, 255, 255))
+            font = pygame.font.Font(None, 36)
+            error_text = font.render(f"历史记录加载失败: {str(e)}", True, (255, 0, 0))
+            text_rect = error_text.get_rect(center=(400, 300))
+            temp_screen.blit(error_text, text_rect)
+            pygame.display.flip()
+            pygame.time.wait(2000)  # 显示2秒错误信息
+
+    def run_game_loop(self):
+        """运行游戏主循环 - 处理游戏进行中的逻辑"""
+        
+        # 初始化游戏屏幕和UI
+        self._init_game_screen()
+        
+        # 开始新游戏
+        self.start_game()
+        
+        ai_think_delay = 0  # AI思考延迟计数器，用于模拟AI思考时间
+        self.game_should_end = False  # 游戏结束标志
+        game_end_display_time = 0  # 游戏结束后的显示时间
+        
+        while self.running:
+            # 处理所有pygame事件（键盘、鼠标、窗口等）
+            if not self._handle_events():
+                break  # 如果返回False则退出游戏循环
+            
+            # 检查游戏是否应该结束
+            if self.game_should_end:
+                # 显示游戏结果一段时间后自动返回菜单
+                game_end_display_time += 1
+                if game_end_display_time > 180:  # 显示3秒（180帧 / 60FPS）
+                    break  # 退出游戏循环，返回主菜单
+            
+            # AI回合处理
+            if (self.game_active and 
+                self.board_state.current_player == self.ai_player):
+                
+                # 添加人工延迟，让AI看起来在"思考"
+                # 提升用户体验，避免AI瞬间落子
+                ai_think_delay += 1
+                if ai_think_delay > 30:  # 约0.5秒延迟（30帧 / 60FPS）
+                    self.handle_ai_move()
+                    ai_think_delay = 0
+            else:
+                ai_think_delay = 0  # 非AI回合时重置延迟计数器
+            
+            # 绘制游戏画面
+            self._draw_game()
+            
+            # 控制游戏帧率为60FPS
+            self.clock.tick(60)
+
+    def show_result(self):
+        """显示游戏结果 - 调用UI模块显示胜负结果"""
+        
+        # 检查结果文件是否存在
+        if os.path.exists("result.txt"):
+            # GameUI.show_result_menu() - 显示结果窗口
+            # 参数：display_time指定显示时长（毫秒）
+            # 该方法会读取result.txt文件并显示相应的结果文本
+            self.game_ui.show_result_menu(display_time=3000)
+    
+    def run(self):
+        """运行游戏主程序 - 管理整个游戏的生命周期"""
+        
+        try:
+            # 主程序循环：菜单 -> 游戏 -> 结果 -> 菜单...
+            while self.running:
+                # GameUI.show_start_menu() - 显示开始菜单
+                # 返回用户选择："start"(开始游戏), "history"(历史记录), "settings"(设置), "quit"(退出)
+                choice = self.game_ui.show_start_menu()
+                
+                if choice == "start":
+                    # 开始游戏：进入游戏主循环
+                    self.run_game_loop()
+                    
+                    # 游戏结束后自动显示结果
+                    if hasattr(self, 'game_should_end') and self.game_should_end:
+                        self.show_result()
+                
+                elif choice == "history":
+                    # 显示历史记录
+                    self.show_history()
+                    
+                elif choice == "settings":
+                    # 设置菜单（功能预留，暂未实现）
+                    print("设置功能尚未实现")
+                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
+                    
+                elif choice == "quit":
+                    # 退出游戏
+                    self.running = False
+                
+                else:
+                    # 处理异常情况（如窗口被强制关闭）
+                    self.running = False
+        
+        except Exception as e:
+            print(f"游戏运行错误: {e}")
+        
+        finally:
+            # 清理资源：关闭pygame窗口，退出程序
+            # GameUI.quit() - 调用pygame.quit()和sys.exit()
+            self.game_ui.quit()
 
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
@@ -329,99 +458,6 @@ class GomokuGame:
                         self.handle_human_move(x, y)
         
         return True  # 继续游戏循环
-    
-    def run_game_loop(self):
-        """运行游戏主循环 - 处理游戏进行中的逻辑"""
-        
-        # 初始化游戏屏幕和UI
-        self._init_game_screen()
-        
-        # 开始新游戏
-        self.start_game()
-        
-        ai_think_delay = 0  # AI思考延迟计数器，用于模拟AI思考时间
-        self.game_should_end = False  # 游戏结束标志
-        game_end_display_time = 0  # 游戏结束后的显示时间
-        
-        while self.running:
-            # 处理所有pygame事件（键盘、鼠标、窗口等）
-            if not self._handle_events():
-                break  # 如果返回False则退出游戏循环
-            
-            # 检查游戏是否应该结束
-            if self.game_should_end:
-                # 显示游戏结果一段时间后自动返回菜单
-                game_end_display_time += 1
-                if game_end_display_time > 180:  # 显示3秒（180帧 / 60FPS）
-                    break  # 退出游戏循环，返回主菜单
-            
-            # AI回合处理
-            if (self.game_active and 
-                self.board_state.current_player == self.ai_player):
-                
-                # 添加人工延迟，让AI看起来在"思考"
-                # 提升用户体验，避免AI瞬间落子
-                ai_think_delay += 1
-                if ai_think_delay > 30:  # 约0.5秒延迟（30帧 / 60FPS）
-                    self.handle_ai_move()
-                    ai_think_delay = 0
-            else:
-                ai_think_delay = 0  # 非AI回合时重置延迟计数器
-            
-            # 绘制游戏画面
-            self._draw_game()
-            
-            # 控制游戏帧率为60FPS
-            self.clock.tick(60)
-
-    def show_result(self):
-        """显示游戏结果 - 调用UI模块显示胜负结果"""
-        
-        # 检查结果文件是否存在
-        if os.path.exists("result.txt"):
-            # GameUI.show_result_menu() - 显示结果窗口
-            # 参数：display_time指定显示时长（毫秒）
-            # 该方法会读取result.txt文件并显示相应的结果文本
-            self.game_ui.show_result_menu(display_time=3000)
-    
-    def run(self):
-        """运行游戏主程序 - 管理整个游戏的生命周期"""
-        
-        try:
-            # 主程序循环：菜单 -> 游戏 -> 结果 -> 菜单...
-            while self.running:
-                # GameUI.show_start_menu() - 显示开始菜单
-                # 返回用户选择："start"(开始游戏), "settings"(设置), "quit"(退出)
-                choice = self.game_ui.show_start_menu()
-                
-                if choice == "start":
-                    # 开始游戏：进入游戏主循环
-                    self.run_game_loop()
-                    
-                    # 游戏结束后自动显示结果
-                    if hasattr(self, 'game_should_end') and self.game_should_end:
-                        self.show_result()
-                    
-                elif choice == "settings":
-                    # 设置菜单（功能预留，暂未实现）
-                    print("设置功能尚未实现")
-                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
-                    
-                elif choice == "quit":
-                    # 退出游戏
-                    self.running = False
-                
-                else:
-                    # 处理异常情况（如窗口被强制关闭）
-                    self.running = False
-        
-        except Exception as e:
-            print(f"游戏运行错误: {e}")
-        
-        finally:
-            # 清理资源：关闭pygame窗口，退出程序
-            # GameUI.quit() - 调用pygame.quit()和sys.exit()
-            self.game_ui.quit()
 
 def main():
     """
