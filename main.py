@@ -7,6 +7,7 @@ from datetime import datetime
 # 导入自定义模块
 from logic.board_state import BoardState  # 棋盘状态管理模块，负责棋盘逻辑和游戏规则
 from logic.move_logic import GomokuAI     # AI决策模块，负责AI下棋策略
+from logic.comment import GameCommentator # AI评语生成模块
 from ui.menu_ui import GameUI             # 游戏UI管理模块，负责菜单显示
 from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制和交互
 from ui.past_ui import HistoryUI          # 历史记录UI模块
@@ -45,6 +46,9 @@ class GomokuGame:
         # 游戏运行状态控制
         self.running = True      # 主程序是否运行
         self.game_active = False # 当前是否在游戏中（区别于在菜单中）
+        
+        # 初始化评语生成器
+        self.commentator = GameCommentator()
         
         # 调用初始化方法
         self._init_game_components()
@@ -229,12 +233,25 @@ class GomokuGame:
             result = 2  # 平局（棋盘下满但无人获胜）
             print("平局！")
         
+        # 生成AI评语，传入游戏结果信息
+        try:
+            print("正在生成对局评语...")
+            self.game_comment = self.commentator.generate_comment(
+                [row[:] for row in self.board_state.board],
+                [list(move) for move in self.board_state.move_history],
+                result  # 传入游戏结果
+            )
+            print("评语生成完成")
+        except Exception as e:
+            print(f"评语生成失败: {e}")
+            self.game_comment = self.commentator.get_fallback_comment(len(self.board_state.move_history))
+        
         # 保存游戏结果到JSON文件
         self._save_game_result(result)
         
-        # 保存历史记录
+        # 保存历史记录（包含生成的评语和游戏结果）
         try:
-            self.board_state.save_to_history()
+            self.board_state.save_to_history(custom_comment=self.game_comment, game_result=result)
             print("游戏记录已保存到历史数据库")
         except Exception as e:
             print(f"保存历史记录失败: {e}")
@@ -288,14 +305,18 @@ class GomokuGame:
             print(f"保存游戏结果失败: {e}")
 
     def show_result(self):
-        """显示游戏结果 - 调用UI模块显示胜负结果"""
+        """显示游戏结果 - 调用UI模块显示胜负结果和评语"""
         
         # 从JSON文件获取最新结果
         latest_result = self._get_latest_result()
         if latest_result is not None:
-            # GameUI.show_result_menu() - 显示结果窗口
-            # 参数：result直接传入结果值，display_time指定显示时长（毫秒）
-            self.game_ui.show_result_menu(result=latest_result, display_time=3000)
+            # 显示结果窗口，包含评语和确认按钮
+            result_confirmed = self.game_ui.show_result_menu_with_comment(
+                result=latest_result, 
+                comment=getattr(self, 'game_comment', '精彩的对弈！')
+            )
+            return result_confirmed
+        return True
 
     def _get_latest_result(self):
         """
@@ -391,40 +412,6 @@ class GomokuGame:
             # 控制游戏帧率为60FPS
             self.clock.tick(60)
 
-    def show_result(self):
-        """显示游戏结果 - 调用UI模块显示胜负结果"""
-        
-        # 从JSON文件获取最新结果
-        latest_result = self._get_latest_result()
-        if latest_result is not None:
-            # GameUI.show_result_menu() - 显示结果窗口
-            # 参数：result直接传入结果值，display_time指定显示时长（毫秒）
-            self.game_ui.show_result_menu(result=latest_result, display_time=3000)
-
-    def _get_latest_result(self):
-        """
-        获取最新的游戏结果
-        
-        :return: int or None，最新的游戏结果
-        """
-        try:
-            results_file = os.path.join(os.path.dirname(__file__), 'game_database', 'results.json')
-            
-            if not os.path.exists(results_file):
-                return None
-            
-            with open(results_file, 'r', encoding='utf-8') as f:
-                results_data = json.load(f)
-                
-            if isinstance(results_data, list) and results_data:
-                # 返回最新（最后一个）结果
-                return results_data[-1]['result']
-                
-        except Exception as e:
-            print(f"读取游戏结果失败: {e}")
-        
-        return None
-
     def run(self):
         """运行游戏主程序 - 管理整个游戏的生命周期"""
         
@@ -439,7 +426,7 @@ class GomokuGame:
                     # 开始游戏：进入游戏主循环
                     self.run_game_loop()
                     
-                    # 游戏结束后自动显示结果
+                    # 游戏结束后显示结果，等待用户确认
                     if hasattr(self, 'game_should_end') and self.game_should_end:
                         self.show_result()
                 
