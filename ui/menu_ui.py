@@ -58,7 +58,7 @@ class Button:
 
 class StartMenu:
     """开始菜单类"""
-    def __init__(self, screen_width=800, screen_height=600, title="Gomoku Game"):
+    def __init__(self, screen_width=800, screen_height=600, title="Gomoku Game",background_image="assets/loadbackground.jpg"):
         """
         初始化开始菜单
         
@@ -75,9 +75,12 @@ class StartMenu:
         self.buttons = []
         self.running = True
         self.choice = None
+        self.background_image = background_image
+        self.background = None
         
         self._init_display()
         self._init_fonts()
+        self._load_background()
         self._create_buttons()
 
     def _init_display(self):
@@ -124,6 +127,15 @@ class StartMenu:
                    color=RED, font=self.font)
         ]
 
+    def _load_background(self):
+        """加载背景图片"""
+        try:
+            self.background = pygame.image.load(self.background_image).convert()
+            self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
+        except pygame.error as e:
+            print(f"加载背景图片失败: {e}")
+            self.background = None
+
     def run(self):
         """
         运行开始菜单
@@ -153,7 +165,8 @@ class StartMenu:
 
     def _draw(self):
         """绘制菜单"""
-        self.screen.fill(WHITE)
+        if self.background:
+            self.screen.blit(self.background, (0, 0))
         
         # 绘制标题
         title_surface = self.title_font.render("Gomoku Game", True, BLACK)
