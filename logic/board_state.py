@@ -4,9 +4,11 @@ from datetime import datetime
 
 # 尝试导入comment模块，如果失败则设置为None
 try:
-    from logic import comment
+    from logic.comment import generate_comment
+    COMMENT_AVAILABLE = True
 except ImportError:
-    comment = None
+    generate_comment = None
+    COMMENT_AVAILABLE = False
 
 class BoardState:
     def __init__(self, size=15, ai_player=2, human_player=1, first_player=1):
@@ -207,11 +209,12 @@ class BoardState:
             return False
         return self.check_win(x, y, player)
 
-    def save_to_history(self, history_path: str = None) -> None:
+    def save_to_history(self, history_path: str = None, custom_comment: str = None) -> None:
         """
         保存当前棋局信息到历史记录文件 history.json。
 
         :param history_path(str, 可选)：历史文件路径。若未指定则默认保存到项目根目录下 game_database/history.json。
+        :param custom_comment(str, 可选)：自定义评语。如果提供则使用此评语，否则尝试生成AI评语。
 
         :return:None
         """
@@ -226,9 +229,11 @@ class BoardState:
         os.makedirs(os.path.dirname(history_path), exist_ok=True)
 
         # 生成对局评语
-        if comment is not None:
+        if custom_comment:
+            comment_text = custom_comment
+        elif COMMENT_AVAILABLE and generate_comment is not None:
             try:
-                comment_text = comment.generate_comment(
+                comment_text = generate_comment(
                     [row[:] for row in self.board],
                     [list(move) for move in self.move_history]
                 )

@@ -179,7 +179,7 @@ class StartMenu:
 
 class ResultMenu:
     """结算菜单类"""
-    def __init__(self, screen_width=400, screen_height=300, title="Game Result"):
+    def __init__(self, screen_width=600, screen_height=500, title="Game Result"):
         """
         初始化结算菜单
         
@@ -192,6 +192,7 @@ class ResultMenu:
         self.title = title
         self.screen = None
         self.font = None
+        self.small_font = None
         
         self._init_display()
         self._init_fonts()
@@ -204,9 +205,11 @@ class ResultMenu:
     def _init_fonts(self):
         """初始化字体"""
         try:
-            self.font = pygame.font.Font("msyh.ttf", 36)
+            self.font = pygame.font.Font("msyh.ttf", 32)
+            self.small_font = pygame.font.Font("msyh.ttf", 20)
         except:
-            self.font = pygame.font.Font(None, 36)
+            self.font = pygame.font.Font(None, 32)
+            self.small_font = pygame.font.Font(None, 20)
 
     def read_result(self, results_file=None):
         """
@@ -282,6 +285,127 @@ class ResultMenu:
             print(f"显示结果失败: {e}")
             return False
 
+    def show_result_with_comment(self, result=None, comment="精彩的对弈！", results_file=None):
+        """
+        显示结算结果和评语，等待用户点击确认按钮
+        
+        :param result: 直接传入的结果值，如果为None则从文件读取
+        :param comment: 对局评语
+        :param results_file: 结果文件路径
+        :return: bool，用户是否确认
+        """
+        try:
+            if result is None:
+                result = self.read_result(results_file)
+            
+            # 根据结果显示不同的文本和颜色
+            if result == 0:
+                result_text = "You Lost!"
+                text_color = RED
+            elif result == 1:
+                result_text = "You Won!"
+                text_color = GREEN
+            elif result == 2:
+                result_text = "Draw!"
+                text_color = BLUE
+            else:
+                result_text = "Unknown Result"
+                text_color = BLACK
+
+            # 创建确认按钮
+            confirm_button = Button(
+                "确认", 
+                self.screen_width // 2 - 60, 
+                self.screen_height - 80, 
+                120, 50, 
+                color=GRAY, 
+                font=self.font
+            )
+            
+            # 显示界面直到用户点击确认
+            clock = pygame.time.Clock()
+            confirmed = False
+            
+            while not confirmed:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        return True  # 强制关闭时返回True
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                            confirmed = True
+                    
+                    # 处理按钮事件
+                    if confirm_button.handle_event(event):
+                        confirmed = True
+                
+                # 绘制界面
+                self.screen.fill(WHITE)
+                
+                # 绘制结果文本
+                result_surface = self.font.render(result_text, True, text_color)
+                result_rect = result_surface.get_rect(center=(self.screen_width // 2, 80))
+                self.screen.blit(result_surface, result_rect)
+                
+                # 绘制评语标题
+                comment_title = self.small_font.render("AI评语:", True, BLACK)
+                self.screen.blit(comment_title, (50, 130))
+                
+                # 绘制评语内容（支持多行显示）
+                self._draw_multiline_text(comment, 50, 160, self.screen_width - 100, self.small_font, BLACK)
+                
+                # 绘制确认按钮
+                confirm_button.draw(self.screen)
+                
+                # 绘制提示文本
+                hint_text = self.small_font.render("点击确认按钮或按Enter/Space键返回主菜单", True, GRAY)
+                hint_rect = hint_text.get_rect(center=(self.screen_width // 2, self.screen_height - 30))
+                self.screen.blit(hint_text, hint_rect)
+                
+                pygame.display.flip()
+                clock.tick(60)
+            
+            return True
+            
+        except (FileNotFoundError, ValueError) as e:
+            print(f"显示结果失败: {e}")
+            return False
+
+    def _draw_multiline_text(self, text, x, y, max_width, font, color):
+        """
+        绘制多行文本
+        
+        :param text: 要绘制的文本
+        :param x: 起始x坐标
+        :param y: 起始y坐标
+        :param max_width: 最大宽度
+        :param font: 字体对象
+        :param color: 文本颜色
+        """
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_surface = font.render(test_line, True, color)
+            
+            if test_surface.get_width() <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        line_height = font.get_height() + 5
+        for i, line in enumerate(lines):
+            line_surface = font.render(line, True, color)
+            self.screen.blit(line_surface, (x, y + i * line_height))
+
 class GameUI:
     """游戏UI管理类"""
     def __init__(self, screen_width=800, screen_height=600):
@@ -317,6 +441,18 @@ class GameUI:
         """
         self.result_menu = ResultMenu()
         return self.result_menu.show_result(result, results_file, display_time)
+
+    def show_result_menu_with_comment(self, result=None, comment="精彩的对弈！", results_file=None):
+        """
+        显示带评语的结算菜单
+        
+        :param result: 直接传入的结果值
+        :param comment: 对局评语
+        :param results_file: 结果文件路径
+        :return: bool，用户是否确认
+        """
+        self.result_menu = ResultMenu()
+        return self.result_menu.show_result_with_comment(result, comment, results_file)
 
     def quit(self):
         """退出游戏"""
