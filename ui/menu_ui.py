@@ -365,6 +365,136 @@ class ResultMenu:
             print(f"显示结果失败: {e}")
             return False
 
+    def show_result_with_async_comment(self, result=None, board_state=None, move_history=None, commentator=None, results_file=None):
+        """
+        显示结算结果和异步生成的评语，带打字机效果
+        
+        :param result: 直接传入的结果值，如果为None则从文件读取
+        :param board_state: 棋盘状态（用于生成评语）
+        :param move_history: 落子历史（用于生成评语）
+        :param commentator: 评语生成器实例
+        :param results_file: 结果文件路径
+        :return: bool，用户是否确认
+        """
+        try:
+            if result is None:
+                result = self.read_result(results_file)
+            
+            # 根据结果显示不同的文本和颜色
+            if result == 0:
+                result_text = "You Lost!"
+                text_color = RED
+            elif result == 1:
+                result_text = "You Won!"
+                text_color = GREEN
+            elif result == 2:
+                result_text = "Draw!"
+                text_color = BLUE
+            else:
+                result_text = "Unknown Result"
+                text_color = BLACK
+
+            # 创建确认按钮
+            confirm_button = Button(
+                "Back", 
+                self.screen_width // 2 - 60, 
+                self.screen_height - 80, 
+                120, 50, 
+                color=GRAY, 
+                font=pygame.font.Font(None, 32)
+            )
+            
+            # 评语相关变量
+            comment_text = ""
+            full_comment = ""
+            comment_generating = True
+            comment_display_index = 0
+            typing_speed = 10  # 基础打字速度（每秒字符数）
+            last_char_time = 0
+            typing_interval = 50  # 初始打字间隔（毫秒）
+            
+            # 启动评语生成线程
+            import threading
+            def generate_comment():
+                nonlocal full_comment, comment_generating, typing_interval
+                try:
+                    if commentator and board_state and move_history:
+                        full_comment = commentator.generate_comment(board_state, move_history, result)
+                    else:
+                        full_comment = "Excellent game! Well played!"
+                except Exception as e:
+                    print(f"评语生成失败: {e}")
+                    full_comment = "Commentary generation failed, but this was an exciting game!"
+                
+                # 根据评语长度动态调整打字速度，目标5秒显示完成
+                if full_comment:
+                    target_time = 5.0  # 目标显示时间（秒）
+                    typing_interval = max(20, int((target_time * 1000) / len(full_comment)))  # 计算每个字符的间隔
+                
+                comment_generating = False
+            
+            comment_thread = threading.Thread(target=generate_comment)
+            comment_thread.daemon = True
+            comment_thread.start()
+            
+            # 显示界面直到用户点击确认
+            clock = pygame.time.Clock()
+            confirmed = False
+            
+            while not confirmed:
+                current_time = pygame.time.get_ticks()
+                
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        return True  # 强制关闭时返回True
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                            confirmed = True
+                    
+                    # 处理按钮事件
+                    if confirm_button.handle_event(event):
+                        confirmed = True
+                
+                # 更新评语显示
+                if comment_generating:
+                    # 显示生成中状态
+                    dots = "." * ((current_time // 500) % 4)  # 动态省略号
+                    comment_text = f"AI is thinking{dots}"
+                else:
+                    # 打字机效果显示评语
+                    if comment_display_index < len(full_comment):
+                        if current_time - last_char_time > typing_interval:
+                            comment_display_index += 1
+                            last_char_time = current_time
+                    comment_text = full_comment[:comment_display_index]
+                
+                # 绘制界面
+                self.screen.fill(WHITE)
+                
+                # 绘制结果文本
+                result_surface = self.font.render(result_text, True, text_color)
+                result_rect = result_surface.get_rect(center=(self.screen_width // 2, 80))
+                self.screen.blit(result_surface, result_rect)
+                
+                # 绘制评语标题
+                comment_title = self.small_font.render("Comments from Deepseek:", True, BLACK)
+                self.screen.blit(comment_title, (50, 130))
+                
+                # 绘制评语内容（支持多行显示和打字机效果）
+                self._draw_multiline_text_with_typing(comment_text, 50, 160, self.screen_width - 100, self.small_font, BLACK)
+                
+                # 绘制确认按钮
+                confirm_button.draw(self.screen)
+                
+                pygame.display.flip()
+                clock.tick(60)
+            
+            return True
+            
+        except (FileNotFoundError, ValueError) as e:
+            print(f"显示结果失败: {e}")
+            return False
+
     def _draw_multiline_text(self, text, x, y, max_width, font, color):
         """
         绘制多行文本
@@ -376,6 +506,45 @@ class ResultMenu:
         :param font: 字体对象
         :param color: 文本颜色
         """
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_surface = font.render(test_line, True, color)
+            
+            if test_surface.get_width() <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        line_height = font.get_height() + 5
+        for i, line in enumerate(lines):
+            line_surface = font.render(line, True, color)
+            self.screen.blit(line_surface, (x, y + i * line_height))
+
+    def _draw_multiline_text_with_typing(self, text, x, y, max_width, font, color):
+        """
+        绘制多行文本，支持打字机效果
+        
+        :param text: 要绘制的文本
+        :param x: 起始x坐标
+        :param y: 起始y坐标
+        :param max_width: 最大宽度
+        :param font: 字体对象
+        :param color: 文本颜色
+        """
+        if not text:
+            return
+            
         words = text.split()
         lines = []
         current_line = []
@@ -448,6 +617,20 @@ class GameUI:
         """
         self.result_menu = ResultMenu()
         return self.result_menu.show_result_with_comment(result, comment, results_file)
+
+    def show_result_menu_with_async_comment(self, result=None, board_state=None, move_history=None, commentator=None, results_file=None):
+        """
+        显示带异步评语生成的结算菜单
+        
+        :param result: 直接传入的结果值
+        :param board_state: 棋盘状态
+        :param move_history: 落子历史
+        :param commentator: 评语生成器
+        :param results_file: 结果文件路径
+        :return: bool，用户是否确认
+        """
+        self.result_menu = ResultMenu()
+        return self.result_menu.show_result_with_async_comment(result, board_state, move_history, commentator, results_file)
 
     def quit(self):
         """退出游戏"""

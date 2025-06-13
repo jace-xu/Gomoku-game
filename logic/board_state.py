@@ -276,3 +276,34 @@ class BoardState:
         except IOError as err:
             print(f"写入历史记录异常: {err}")
 
+    def update_latest_history_comment(self, comment_text: str, history_path: str = None) -> None:
+        """
+        更新最新历史记录的评语
+        
+        :param comment_text: 新的评语文本
+        :param history_path: 历史文件路径，若未指定则使用默认路径
+        :return: None
+        """
+        if history_path is None:
+            history_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "game_database", "history.json"
+            )
+        
+        try:
+            # 读取历史记录
+            if os.path.exists(history_path):
+                with open(history_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    
+                if isinstance(data, list) and data:
+                    # 更新最新记录的评语
+                    data[-1]["comment"] = comment_text
+                    
+                    # 写回文件
+                    with open(history_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                        
+        except Exception as err:
+            print(f"更新历史记录评语异常: {err}")
+
