@@ -19,5 +19,26 @@
     "human_player": 1,
     "ai_player": 2,
     "move_count": 17
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-13 15:25:13",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 13
+  },
+  {
+    "result": 0,
+    "timestamp": "2025-06-13 15:28:20",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 26
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-13 15:29:35",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 17
   }
 ]

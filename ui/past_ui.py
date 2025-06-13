@@ -44,12 +44,12 @@ class GameDetailUI:
     def __init__(self, screen: pygame.Surface, game_data: Dict):
         self.screen = screen
         self.game_data = game_data
-        self.font = pygame.font.SysFont('SimHei', 24)
-        self.small_font = pygame.font.SysFont('SimHei', 18)
-        self.title_font = pygame.font.SysFont('SimHei', 32)
+        self.font = pygame.font.Font(None, 24)
+        self.small_font = pygame.font.Font(None, 18)
+        self.title_font = pygame.font.Font(None, 32)
         
         # 创建返回按钮
-        self.return_button = Button("返回", 10, 10, 80, 35, (70, 130, 180))
+        self.return_button = Button("Back", 10, 10, 80, 35, (70, 130, 180))
         
         # 计算布局
         self.screen_width = screen.get_width()
@@ -90,7 +90,7 @@ class GameDetailUI:
         self.screen.fill(BG_COLOR)
         
         # 绘制标题
-        title = self.title_font.render("对局详情", True, FONT_COLOR)
+        title = self.title_font.render("Game Details", True, FONT_COLOR)
         self.screen.blit(title, (self.screen_width // 2 - title.get_width() // 2, 15))
         
         # 绘制返回按钮
@@ -159,8 +159,8 @@ class GameDetailUI:
         line_height = 25
         
         # 时间
-        timestamp = self.game_data.get('timestamp', '未知时间')
-        time_text = self.font.render(f"时间: {timestamp}", True, FONT_COLOR)
+        timestamp = self.game_data.get('timestamp', 'Unknown Time')
+        time_text = self.font.render(f"Time: {timestamp}", True, FONT_COLOR)
         self.screen.blit(time_text, (self.info_x, y_offset))
         y_offset += line_height
         
@@ -168,16 +168,16 @@ class GameDetailUI:
         result = self.game_data.get('result', None)
         if result is not None:
             if result == 1:
-                result_text = "游戏结果: 人类获胜"
+                result_text = "Result: Human Won"
                 result_color = (0, 150, 0)
             elif result == 0:
-                result_text = "游戏结果: AI获胜"
+                result_text = "Result: AI Won"
                 result_color = (150, 0, 0)
             elif result == 2:
-                result_text = "游戏结果: 平局"
+                result_text = "Result: Draw"
                 result_color = (0, 0, 150)
             else:
-                result_text = "游戏结果: 未知"
+                result_text = "Result: Unknown"
                 result_color = FONT_COLOR
             
             result_surface = self.font.render(result_text, True, result_color)
@@ -186,7 +186,7 @@ class GameDetailUI:
         
         # 落子数
         moves = len(self.game_data.get('moves', []))
-        moves_text = self.font.render(f"总步数: {moves}", True, FONT_COLOR)
+        moves_text = self.font.render(f"Total Moves: {moves}", True, FONT_COLOR)
         self.screen.blit(moves_text, (self.info_x, y_offset))
         y_offset += line_height * 2
         
@@ -200,14 +200,14 @@ class GameDetailUI:
         comment_y = self.info_y + 120
         
         # 评语标题
-        comment_title = self.font.render("AI评语:", True, FONT_COLOR)
+        comment_title = self.font.render("AI Commentary:", True, FONT_COLOR)
         self.screen.blit(comment_title, (self.info_x, comment_y))
         comment_y += 30
         
         # 评语内容
-        comment = self.game_data.get('comment', '暂无评语')
+        comment = self.game_data.get('comment', 'No commentary available')
         if comment == "评语生成中...":
-            comment = "评语生成失败，但这是一场精彩的对弈！"
+            comment = "Commentary generation failed, but this was an exciting game!"
         
         # 多行显示评语（增加显示宽度）
         max_width = self.screen_width - self.info_x - 20  # 减少右边距，增加显示宽度
@@ -254,8 +254,8 @@ class HistoryUI:
         :return: None
         """
         self.screen = disp_surface
-        self.font = pygame.font.SysFont('SimHei', 28)      # 标题字体
-        self.small_font = pygame.font.SysFont('SimHei', 16) # 列表字体
+        self.font = pygame.font.Font(None, 28)      # 标题字体
+        self.small_font = pygame.font.Font(None, 16) # 列表字体
         self.history_data = self.load_history_data()        # 历史对局数据列表
         self.scroll_offset = 0                              # 当前滚动偏移
         self.item_height = 120                              # 每条历史快照高度（增加以容纳三行）
@@ -307,7 +307,7 @@ class HistoryUI:
         
         while running:
             self.screen.fill(BG_COLOR)
-            title = self.font.render("历史对局记录", True, FONT_COLOR)
+            title = self.font.render("Game History", True, FONT_COLOR)
             self.screen.blit(title, (screen_width // 2 - title.get_width() // 2, 20))
 
             # 事件处理：退出、滚动、按钮点击、项目点击
@@ -346,7 +346,7 @@ class HistoryUI:
             
             # 显示历史记录数量
             if not self.history_data:
-                no_data_text = self.font.render("暂无历史记录", True, FONT_COLOR)
+                no_data_text = self.font.render("No game history available", True, FONT_COLOR)
                 self.screen.blit(no_data_text, (screen_width // 2 - no_data_text.get_width() // 2, screen_height // 2))
             else:
                 # 绘制每场对局快照
@@ -364,7 +364,7 @@ class HistoryUI:
             self.return_button.draw(self.screen)
             
             # 绘制操作提示
-            hint_text = self.small_font.render("提示: 点击记录查看详情，方向键或鼠标滚轮滚动，ESC返回", True, (100, 100, 100))
+            hint_text = self.small_font.render("Tip: Click record to view details, arrow keys or mouse wheel to scroll, ESC to return", True, (100, 100, 100))
             self.screen.blit(hint_text, (10, screen_height - 25))
             
             pygame.display.flip()
@@ -400,41 +400,41 @@ class HistoryUI:
             pygame.draw.rect(self.screen, (180, 180, 180), rect, 1, border_radius=5)
             
             # 第一行：时间戳和游戏结果
-            ts = match_data.get('timestamp', '未知时间')
-            ts_text = self.small_font.render(f"时间: {ts}", True, FONT_COLOR)
+            ts = match_data.get('timestamp', 'Unknown Time')
+            ts_text = self.small_font.render(f"Time: {ts}", True, FONT_COLOR)
             self.screen.blit(ts_text, (rect.x + 10, rect.y + 8))
 
             # 显示游戏结果（在第一行右侧）
             result = match_data.get('result', None)
             if result is not None:
                 if result == 1:
-                    result_text = "人类获胜"
+                    result_text = "Human Won"
                     result_color = (0, 150, 0)
                 elif result == 0:
-                    result_text = "AI获胜"
+                    result_text = "AI Won"
                     result_color = (150, 0, 0)
                 elif result == 2:
-                    result_text = "平局"
+                    result_text = "Draw"
                     result_color = (0, 0, 150)
                 else:
-                    result_text = "未知"
+                    result_text = "Unknown"
                     result_color = FONT_COLOR
                 
                 result_surface = self.small_font.render(result_text, True, result_color)
                 self.screen.blit(result_surface, (rect.x + 300, rect.y + 8))
 
             # 第二行：评语摘要
-            comment = match_data.get('comment', '暂无评语')
+            comment = match_data.get('comment', 'No commentary available')
             if comment == "评语生成中...":
-                comment = "评语生成失败"
+                comment = "Commentary generation failed"
             
             comment_summary = comment[:50] + "..." if len(comment) > 50 else comment
-            cm_text = self.small_font.render(f"评语: {comment_summary}", True, FONT_COLOR)
+            cm_text = self.small_font.render(f"Comment: {comment_summary}", True, FONT_COLOR)
             self.screen.blit(cm_text, (rect.x + 10, rect.y + 30))
 
             # 第三行：步数
             moves = len(match_data.get('moves', []))
-            mv_text = self.small_font.render(f"步数: {moves}", True, FONT_COLOR)
+            mv_text = self.small_font.render(f"Moves: {moves}", True, FONT_COLOR)
             self.screen.blit(mv_text, (rect.x + 10, rect.y + 52))
 
             # 棋盘快照（小型棋盘）- 放在左下角
@@ -443,12 +443,12 @@ class HistoryUI:
                 self._draw_board_snapshot(board_state, rect.x + 15, rect.y + 75, size=40)
             
             # 点击提示（右下角）
-            click_hint = self.small_font.render("点击查看详情 →", True, (100, 100, 100))
+            click_hint = self.small_font.render("Click for details ->", True, (100, 100, 100))
             self.screen.blit(click_hint, (rect.x + rect.width - 120, rect.y + rect.height - 20))
             
         except Exception as exc:
             # 单场快照绘制异常，绘制错误提示
-            error_text = self.small_font.render(f"快照异常: {exc}", True, (200, 50, 50))
+            error_text = self.small_font.render(f"Snapshot error: {exc}", True, (200, 50, 50))
             self.screen.blit(error_text, (rect.x + 10, rect.y + 40))
 
     def _draw_board_snapshot(self, board_state: List[List[int]], x: int, y: int, size: int = 40) -> None:
@@ -496,5 +496,5 @@ class HistoryUI:
         try:
             self.draw_history_view()
         except Exception as run_exc:
-            print(f"历史记录界面异常: {run_exc}")
+            print(f"History UI error: {run_exc}")
 
