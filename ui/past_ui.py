@@ -182,6 +182,25 @@ class HistoryUI:
             cm_text = self.small_font.render(f"评语: {comment}", True, FONT_COLOR)
             self.screen.blit(cm_text, (rect.x + 200, rect.y + 10))
 
+            # 显示游戏结果
+            result = match_data.get('result', None)
+            if result is not None:
+                if result == 1:
+                    result_text = "结果: 人类获胜"
+                    result_color = (0, 150, 0)  # 绿色
+                elif result == 0:
+                    result_text = "结果: AI获胜"
+                    result_color = (150, 0, 0)  # 红色
+                elif result == 2:
+                    result_text = "结果: 平局"
+                    result_color = (0, 0, 150)  # 蓝色
+                else:
+                    result_text = "结果: 未知"
+                    result_color = FONT_COLOR
+                
+                result_surface = self.small_font.render(result_text, True, result_color)
+                self.screen.blit(result_surface, (rect.x + 500, rect.y + 10))
+
             # 棋盘快照（小型棋盘）
             board_state = match_data.get('board', None)
             if isinstance(board_state, list):

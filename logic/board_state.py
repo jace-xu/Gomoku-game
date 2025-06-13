@@ -209,12 +209,13 @@ class BoardState:
             return False
         return self.check_win(x, y, player)
 
-    def save_to_history(self, history_path: str = None, custom_comment: str = None) -> None:
+    def save_to_history(self, history_path: str = None, custom_comment: str = None, game_result: int = None) -> None:
         """
         保存当前棋局信息到历史记录文件 history.json。
 
         :param history_path(str, 可选)：历史文件路径。若未指定则默认保存到项目根目录下 game_database/history.json。
         :param custom_comment(str, 可选)：自定义评语。如果提供则使用此评语，否则尝试生成AI评语。
+        :param game_result(int, 可选)：游戏结果 (0=AI获胜, 1=人类获胜, 2=平局)
 
         :return:None
         """
@@ -235,7 +236,8 @@ class BoardState:
             try:
                 comment_text = generate_comment(
                     [row[:] for row in self.board],
-                    [list(move) for move in self.move_history]
+                    [list(move) for move in self.move_history],
+                    game_result  # 传入游戏结果
                 )
             except Exception as exc:
                 print(f"评语生成失败: {exc}")
@@ -247,7 +249,8 @@ class BoardState:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "comment": comment_text,
             "board": [row[:] for row in self.board],
-            "moves": [list(move) for move in self.move_history]
+            "moves": [list(move) for move in self.move_history],
+            "result": game_result  # 添加游戏结果信息
         }
 
         # 读取原有历史记录

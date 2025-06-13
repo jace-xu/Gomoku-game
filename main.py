@@ -233,12 +233,13 @@ class GomokuGame:
             result = 2  # 平局（棋盘下满但无人获胜）
             print("平局！")
         
-        # 生成AI评语
+        # 生成AI评语，传入游戏结果信息
         try:
             print("正在生成对局评语...")
             self.game_comment = self.commentator.generate_comment(
                 [row[:] for row in self.board_state.board],
-                [list(move) for move in self.board_state.move_history]
+                [list(move) for move in self.board_state.move_history],
+                result  # 传入游戏结果
             )
             print("评语生成完成")
         except Exception as e:
@@ -248,9 +249,9 @@ class GomokuGame:
         # 保存游戏结果到JSON文件
         self._save_game_result(result)
         
-        # 保存历史记录（包含生成的评语）
+        # 保存历史记录（包含生成的评语和游戏结果）
         try:
-            self.board_state.save_to_history(custom_comment=self.game_comment)
+            self.board_state.save_to_history(custom_comment=self.game_comment, game_result=result)
             print("游戏记录已保存到历史数据库")
         except Exception as e:
             print(f"保存历史记录失败: {e}")

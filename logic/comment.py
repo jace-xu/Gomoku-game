@@ -74,12 +74,22 @@ class GameCommentator:
             return "AI commentary service unavailable"
         
         try:
+            # 根据游戏结果确定获胜方
+            winner_info = ""
+            if 'result' in game_data:
+                if game_data['result'] == 1:
+                    winner_info = " The human player (black pieces) WON this game."
+                elif game_data['result'] == 0:
+                    winner_info = " The AI player (white pieces) WON this game."
+                elif game_data['result'] == 2:
+                    winner_info = " This game ended in a DRAW."
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system", 
-                        "content": "You are a professional Gomoku player. You need to analyze the following JSON game data and provide insightful commentary. 读取最新的游戏记录，引用一些棋子的位置坐标来说明你的观点。文件中1代表的是黑棋，也就是玩家；2代表的是白棋，也就是ai。0代表的空位。评价要生动易懂。给出一个简单的，只有一段的评价，不要分条，也不要分自然段，也不要任何markdown语言，给我纯文字。评价完了加上一句，如果玩家获胜就恭喜player，如果ai赢了，就鼓励player不要气馁，再来一局。Respond in English only."
+                        "content": f"You are a professional Gomoku player. Analyze the following game data and provide insightful commentary. Important: 1=black pieces (human player), 2=white pieces (AI player), 0=empty position. Focus on key moves and strategic plays. Give a single paragraph commentary without markdown formatting, just plain text.{winner_info} End your commentary by congratulating the winner - if human won, congratulate the player; if AI won, encourage the player to try again. Respond in English only."
                     },
                     {
                         "role": "user", 
@@ -95,12 +105,13 @@ class GameCommentator:
             print(f"Failed to generate commentary: {e}")
             return "Commentary generation failed, but this was an exciting game"
     
-    def generate_comment(self, board_state: List[List[int]], move_history: List[List[int]]) -> str:
+    def generate_comment(self, board_state: List[List[int]], move_history: List[List[int]], game_result: int = None) -> str:
         """
         Generate commentary based on board state and move history
         
         :param board_state: Board state 2D array
         :param move_history: Move history list, each item is [x, y, player]
+        :param game_result: Game result (0=AI win, 1=human win, 2=draw)
         :return: Generated commentary text
         """
         game_data = {
@@ -109,6 +120,10 @@ class GameCommentator:
             "move_count": len(move_history),
             "board_size": len(board_state) if board_state else 0
         }
+        
+        # 添加游戏结果信息
+        if game_result is not None:
+            game_data["result"] = game_result
         
         return self.generate_comment_from_data(game_data)
     
@@ -154,17 +169,18 @@ def get_default_commentator() -> GameCommentator:
         _default_commentator = GameCommentator()
     return _default_commentator
 
-def generate_comment(board_state: List[List[int]], move_history: List[List[int]]) -> str:
+def generate_comment(board_state: List[List[int]], move_history: List[List[int]], game_result: int = None) -> str:
     """
     Convenience function: generate game commentary
     Maintains compatibility with existing interface
     
     :param board_state: Board state
     :param move_history: Move history
+    :param game_result: Game result (0=AI win, 1=human win, 2=draw)
     :return: Commentary text
     """
     commentator = get_default_commentator()
-    return commentator.generate_comment(board_state, move_history)
+    return commentator.generate_comment(board_state, move_history, game_result)
 
 # For compatibility, keep original function interface
 def read_json_file(file_path: str) -> Optional[Dict[str, Any]]:
