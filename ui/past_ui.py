@@ -55,13 +55,13 @@ class GameDetailUI:
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
         
-        # 棋盘显示区域
-        self.board_size = 200  # 棋盘显示大小
-        self.board_x = 50
+        # 棋盘显示区域（稍微缩小棋盘为评语让出更多空间）
+        self.board_size = 180  # 棋盘显示大小（从200减到180）
+        self.board_x = 30      # 棋盘左边距（从50减到30）
         self.board_y = 60
         
-        # 信息显示区域
-        self.info_x = self.board_x + self.board_size + 30
+        # 信息显示区域（向左移动，增加宽度）
+        self.info_x = self.board_x + self.board_size + 20  # 减少间距
         self.info_y = self.board_y
     
     def run(self):
@@ -209,8 +209,8 @@ class GameDetailUI:
         if comment == "评语生成中...":
             comment = "评语生成失败，但这是一场精彩的对弈！"
         
-        # 多行显示评语
-        max_width = self.screen_width - self.info_x - 50
+        # 多行显示评语（增加显示宽度）
+        max_width = self.screen_width - self.info_x - 20  # 减少右边距，增加显示宽度
         self._draw_multiline_text(comment, self.info_x, comment_y, max_width)
     
     def _draw_multiline_text(self, text, x, y, max_width):
@@ -258,7 +258,7 @@ class HistoryUI:
         self.small_font = pygame.font.SysFont('SimHei', 16) # 列表字体
         self.history_data = self.load_history_data()        # 历史对局数据列表
         self.scroll_offset = 0                              # 当前滚动偏移
-        self.item_height = 100                              # 每条历史快照高度（减小）
+        self.item_height = 120                              # 每条历史快照高度（增加以容纳三行）
         self.margin = 15                                    # 快照之间的间距
         
         # 创建返回按钮
@@ -399,12 +399,12 @@ class HistoryUI:
             pygame.draw.rect(self.screen, (230, 230, 230), rect, border_radius=5)
             pygame.draw.rect(self.screen, (180, 180, 180), rect, 1, border_radius=5)
             
-            # 显示时间戳
+            # 第一行：时间戳和游戏结果
             ts = match_data.get('timestamp', '未知时间')
             ts_text = self.small_font.render(f"时间: {ts}", True, FONT_COLOR)
             self.screen.blit(ts_text, (rect.x + 10, rect.y + 8))
 
-            # 显示游戏结果
+            # 显示游戏结果（在第一行右侧）
             result = match_data.get('result', None)
             if result is not None:
                 if result == 1:
@@ -421,30 +421,30 @@ class HistoryUI:
                     result_color = FONT_COLOR
                 
                 result_surface = self.small_font.render(result_text, True, result_color)
-                self.screen.blit(result_surface, (rect.x + 10, rect.y + 30))
+                self.screen.blit(result_surface, (rect.x + 300, rect.y + 8))
 
-            # 显示评语摘要（最多显示前30个字符）
+            # 第二行：评语摘要
             comment = match_data.get('comment', '暂无评语')
             if comment == "评语生成中...":
                 comment = "评语生成失败"
             
-            comment_summary = comment[:30] + "..." if len(comment) > 30 else comment
+            comment_summary = comment[:50] + "..." if len(comment) > 50 else comment
             cm_text = self.small_font.render(f"评语: {comment_summary}", True, FONT_COLOR)
-            self.screen.blit(cm_text, (rect.x + 150, rect.y + 8))
+            self.screen.blit(cm_text, (rect.x + 10, rect.y + 30))
 
-            # 棋盘快照（小型棋盘）
-            board_state = match_data.get('board', None)
-            if isinstance(board_state, list):
-                self._draw_board_snapshot(board_state, rect.x + 15, rect.y + 50, size=40)
-                
-            # 落子数
+            # 第三行：步数
             moves = len(match_data.get('moves', []))
             mv_text = self.small_font.render(f"步数: {moves}", True, FONT_COLOR)
-            self.screen.blit(mv_text, (rect.x + 150, rect.y + 30))
+            self.screen.blit(mv_text, (rect.x + 10, rect.y + 52))
+
+            # 棋盘快照（小型棋盘）- 放在左下角
+            board_state = match_data.get('board', None)
+            if isinstance(board_state, list):
+                self._draw_board_snapshot(board_state, rect.x + 15, rect.y + 75, size=40)
             
-            # 点击提示
+            # 点击提示（右下角）
             click_hint = self.small_font.render("点击查看详情 →", True, (100, 100, 100))
-            self.screen.blit(click_hint, (rect.x + rect.width - 120, rect.y + rect.height - 25))
+            self.screen.blit(click_hint, (rect.x + rect.width - 120, rect.y + rect.height - 20))
             
         except Exception as exc:
             # 单场快照绘制异常，绘制错误提示
