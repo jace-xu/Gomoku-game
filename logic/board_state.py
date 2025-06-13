@@ -229,19 +229,9 @@ class BoardState:
         # 确保目录存在
         os.makedirs(os.path.dirname(history_path), exist_ok=True)
 
-        # 生成对局评语
+        # 使用提供的评语，避免重复生成
         if custom_comment and custom_comment != "评语生成中...":
             comment_text = custom_comment
-        elif COMMENT_AVAILABLE and generate_comment is not None:
-            try:
-                comment_text = generate_comment(
-                    [row[:] for row in self.board],
-                    [list(move) for move in self.move_history],
-                    game_result  # 传入游戏结果
-                )
-            except Exception as exc:
-                print(f"评语生成失败: {exc}")
-                comment_text = "这是一场精彩的对弈！"
         else:
             comment_text = "这是一场精彩的对弈！"
 
@@ -253,26 +243,26 @@ class BoardState:
             "result": game_result  # 添加游戏结果信息
         }
 
-        # 读取原有历史记录
-        if os.path.exists(history_path):
-            try:
-                with open(history_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if not isinstance(data, list):
-                        print("历史文件内容异常，重置为空列表")
-                        data = []
-            except (json.JSONDecodeError, IOError) as err:
-                print(f"读取历史记录异常: {err}")
-                data = []
-        else:
-            data = []
-
-        # 追加本次记录并写回文件
-        data.append(record)
-
+        # 快速读取和写入，减少I/O时间
         try:
+            # 读取原有历史记录
+            data = []
+            if os.path.exists(history_path):
+                try:
+                    with open(history_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if not isinstance(data, list):
+                            data = []
+                except (json.JSONDecodeError, IOError):
+                    data = []
+
+            # 追加本次记录
+            data.append(record)
+
+            # 写回文件
             with open(history_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+                
         except IOError as err:
             print(f"写入历史记录异常: {err}")
 

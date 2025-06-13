@@ -374,7 +374,7 @@ class ResultMenu:
         :param move_history: 落子历史（用于生成评语）
         :param commentator: 评语生成器实例
         :param results_file: 结果文件路径
-        :return: bool，用户是否确认
+        :return: tuple，(用户是否确认, 生成的评语)
         """
         try:
             if result is None:
@@ -412,19 +412,24 @@ class ResultMenu:
             typing_speed = 10  # 基础打字速度（每秒字符数）
             last_char_time = 0
             typing_interval = 50  # 初始打字间隔（毫秒）
+            comment_thread = None
+            generated_comment = None  # 存储生成的评语
             
             # 启动评语生成线程
             import threading
             def generate_comment():
-                nonlocal full_comment, comment_generating, typing_interval
+                nonlocal full_comment, comment_generating, typing_interval, generated_comment
                 try:
                     if commentator and board_state and move_history:
-                        full_comment = commentator.generate_comment(board_state, move_history, result)
+                        generated_comment = commentator.generate_comment(board_state, move_history, result)
+                        full_comment = generated_comment
                     else:
-                        full_comment = "Excellent game! Well played!"
+                        generated_comment = "Excellent game! Well played!"
+                        full_comment = generated_comment
                 except Exception as e:
                     print(f"评语生成失败: {e}")
-                    full_comment = "Commentary generation failed, but this was an exciting game!"
+                    generated_comment = "Commentary generation failed, but this was an exciting game!"
+                    full_comment = generated_comment
                 
                 # 根据评语长度动态调整打字速度，目标5秒显示完成
                 if full_comment:
@@ -446,7 +451,10 @@ class ResultMenu:
                 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        return True  # 强制关闭时返回True
+                        # 确保线程结束
+                        if comment_thread and comment_thread.is_alive():
+                            comment_thread.join(timeout=0.1)
+                        return True, generated_comment  # 返回生成的评语
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                             confirmed = True
@@ -489,11 +497,15 @@ class ResultMenu:
                 pygame.display.flip()
                 clock.tick(60)
             
-            return True
+            # 确保线程结束
+            if comment_thread and comment_thread.is_alive():
+                comment_thread.join(timeout=0.1)
+            
+            return True, generated_comment  # 返回生成的评语
             
         except (FileNotFoundError, ValueError) as e:
             print(f"显示结果失败: {e}")
-            return False
+            return False, None
 
     def _draw_multiline_text(self, text, x, y, max_width, font, color):
         """
@@ -506,6 +518,9 @@ class ResultMenu:
         :param font: 字体对象
         :param color: 文本颜色
         """
+        if not text:
+            return
+            
         words = text.split()
         lines = []
         current_line = []
@@ -627,7 +642,7 @@ class GameUI:
         :param move_history: 落子历史
         :param commentator: 评语生成器
         :param results_file: 结果文件路径
-        :return: bool，用户是否确认
+        :return: tuple，(用户是否确认, 生成的评语)
         """
         self.result_menu = ResultMenu()
         return self.result_menu.show_result_with_async_comment(result, board_state, move_history, commentator, results_file)

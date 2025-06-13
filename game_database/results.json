@@ -5,5 +5,12 @@
     "human_player": 1,
     "ai_player": 2,
     "move_count": 23
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-13 15:11:46",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 11
   }
 ]

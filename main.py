@@ -298,30 +298,48 @@ class GomokuGame:
         
         if result is not None:
             # 显示结果窗口，包含异步评语生成和打字机效果
-            result_confirmed = self.game_ui.show_result_menu_with_async_comment(
+            result_confirmed, generated_comment = self.game_ui.show_result_menu_with_async_comment(
                 result=result, 
                 board_state=[row[:] for row in self.board_state.board],
                 move_history=[list(move) for move in self.board_state.move_history],
                 commentator=self.commentator
             )
             
-            # 结果确认后，生成并保存完整评语到历史记录
+            # 在后台线程中保存历史记录，避免阻塞UI
+            if generated_comment:
+                self._save_history_async(generated_comment, result)
+            else:
+                self._save_history_async("这是一场精彩的对弈！", result)
+            
+            return result_confirmed
+        return True
+
+    def _save_history_async(self, comment, result):
+        """
+        异步保存历史记录，避免阻塞UI
+        
+        :param comment: 评语
+        :param result: 游戏结果
+        """
+        import threading
+        
+        def save_history():
             try:
-                final_comment = self.commentator.generate_comment(
-                    [row[:] for row in self.board_state.board],
-                    [list(move) for move in self.board_state.move_history],
-                    result
-                )
-                # 保存完整历史记录
-                self.board_state.save_to_history(custom_comment=final_comment, game_result=result)
+                self.board_state.save_to_history(custom_comment=comment, game_result=result)
                 print("完整游戏记录已保存")
             except Exception as e:
                 print(f"保存完整记录失败: {e}")
                 # 保存基本记录
-                self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=result)
-            
-            return result_confirmed
-        return True
+                try:
+                    self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=result)
+                    print("基本游戏记录已保存")
+                except Exception as e2:
+                    print(f"保存基本记录也失败: {e2}")
+        
+        # 创建后台线程保存历史记录
+        save_thread = threading.Thread(target=save_history)
+        save_thread.daemon = True
+        save_thread.start()
 
     def _get_latest_result(self):
         """
