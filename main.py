@@ -233,28 +233,18 @@ class GomokuGame:
             result = 2  # 平局（棋盘下满但无人获胜）
             print("平局！")
         
-        # 生成AI评语，传入游戏结果信息
-        try:
-            print("正在生成对局评语...")
-            self.game_comment = self.commentator.generate_comment(
-                [row[:] for row in self.board_state.board],
-                [list(move) for move in self.board_state.move_history],
-                result  # 传入游戏结果
-            )
-            print("评语生成完成")
-        except Exception as e:
-            print(f"评语生成失败: {e}")
-            self.game_comment = self.commentator.get_fallback_comment(len(self.board_state.move_history))
-        
-        # 保存游戏结果到JSON文件
+        # 保存游戏结果到JSON文件（不生成评语）
         self._save_game_result(result)
         
-        # 保存历史记录（包含生成的评语和游戏结果）
+        # 先保存历史记录（不包含评语）
         try:
-            self.board_state.save_to_history(custom_comment=self.game_comment, game_result=result)
+            self.board_state.save_to_history(custom_comment="评语生成中...", game_result=result)
             print("游戏记录已保存到历史数据库")
         except Exception as e:
             print(f"保存历史记录失败: {e}")
+        
+        # 存储结果供后续使用
+        self.current_game_result = result
         
         # 设置游戏结束标志，让游戏循环知道需要退出
         self.game_should_end = True
@@ -307,13 +297,19 @@ class GomokuGame:
     def show_result(self):
         """显示游戏结果 - 调用UI模块显示胜负结果和评语"""
         
-        # 从JSON文件获取最新结果
-        latest_result = self._get_latest_result()
-        if latest_result is not None:
-            # 显示结果窗口，包含评语和确认按钮
-            result_confirmed = self.game_ui.show_result_menu_with_comment(
-                result=latest_result, 
-                comment=getattr(self, 'game_comment', '精彩的对弈！')
+        # 从保存的结果获取
+        if hasattr(self, 'current_game_result'):
+            result = self.current_game_result
+        else:
+            result = self._get_latest_result()
+        
+        if result is not None:
+            # 显示结果窗口，包含异步评语生成和打字机效果
+            result_confirmed = self.game_ui.show_result_menu_with_async_comment(
+                result=result, 
+                board_state=[row[:] for row in self.board_state.board],
+                move_history=[list(move) for move in self.board_state.move_history],
+                commentator=self.commentator
             )
             return result_confirmed
         return True
