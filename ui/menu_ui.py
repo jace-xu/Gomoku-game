@@ -58,7 +58,7 @@ class Button:
 
 class StartMenu:
     """开始菜单类"""
-    def __init__(self, screen_width=800, screen_height=600, title="Gomoku Game",background_image="asset/loadbackground.jpg"):
+    def __init__(self, screen_width=800, screen_height=600, title="Gomoku Game",background_image="assets/loadbackground.jpg"):
         """
         初始化开始菜单
         
