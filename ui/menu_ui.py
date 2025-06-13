@@ -312,14 +312,14 @@ class ResultMenu:
                 result_text = "Unknown Result"
                 text_color = BLACK
 
-            # 创建确认按钮
+            # 创建确认按钮 - 使用英文字体避免乱码
             confirm_button = Button(
-                "确认", 
+                "Back", 
                 self.screen_width // 2 - 60, 
                 self.screen_height - 80, 
                 120, 50, 
                 color=GRAY, 
-                font=self.font
+                font=pygame.font.Font(None, 32)  # 使用默认字体避免中文显示问题
             )
             
             # 显示界面直到用户点击确认
@@ -347,7 +347,7 @@ class ResultMenu:
                 self.screen.blit(result_surface, result_rect)
                 
                 # 绘制评语标题
-                comment_title = self.small_font.render("AI评语:", True, BLACK)
+                comment_title = self.small_font.render("Comments from Deepseek:", True, BLACK)
                 self.screen.blit(comment_title, (50, 130))
                 
                 # 绘制评语内容（支持多行显示）
@@ -355,11 +355,6 @@ class ResultMenu:
                 
                 # 绘制确认按钮
                 confirm_button.draw(self.screen)
-                
-                # 绘制提示文本
-                hint_text = self.small_font.render("点击确认按钮或按Enter/Space键返回主菜单", True, GRAY)
-                hint_rect = hint_text.get_rect(center=(self.screen_width // 2, self.screen_height - 30))
-                self.screen.blit(hint_text, hint_rect)
                 
                 pygame.display.flip()
                 clock.tick(60)

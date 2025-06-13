@@ -79,7 +79,7 @@ class GameCommentator:
                 messages=[
                     {
                         "role": "system", 
-                        "content": "You are a professional Gomoku player. You need to analyze the following JSON game data and provide insightful commentary. 给出一个简单的，只有一段的评价，不要分条，也不要分自然段，也不要任何markdown语言，给我纯文字。Respond in English only."
+                        "content": "You are a professional Gomoku player. You need to analyze the following JSON game data and provide insightful commentary. 读取最新的游戏记录，引用一些棋子的位置坐标来说明你的观点。文件中1代表的是黑棋，也就是玩家；2代表的是白棋，也就是ai。0代表的空位。评价要生动易懂。给出一个简单的，只有一段的评价，不要分条，也不要分自然段，也不要任何markdown语言，给我纯文字。评价完了加上一句，如果玩家获胜就恭喜player，如果ai赢了，就鼓励player不要气馁，再来一局。Respond in English only."
                     },
                     {
                         "role": "user", 
