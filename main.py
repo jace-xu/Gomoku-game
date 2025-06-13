@@ -1,12 +1,16 @@
 import pygame
 import sys
 import os
+import json
+from datetime import datetime
 
 # 导入自定义模块
 from logic.board_state import BoardState  # 棋盘状态管理模块，负责棋盘逻辑和游戏规则
 from logic.move_logic import GomokuAI     # AI决策模块，负责AI下棋策略
+from logic.comment import GameCommentator # AI评语生成模块
 from ui.menu_ui import GameUI             # 游戏UI管理模块，负责菜单显示
 from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制和交互
+from ui.past_ui import HistoryUI          # 历史记录UI模块
 
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
@@ -42,6 +46,9 @@ class GomokuGame:
         # 游戏运行状态控制
         self.running = True      # 主程序是否运行
         self.game_active = False # 当前是否在游戏中（区别于在菜单中）
+        
+        # 初始化评语生成器
+        self.commentator = GameCommentator()
         
         # 调用初始化方法
         self._init_game_components()
@@ -100,7 +107,19 @@ class GomokuGame:
             margin=margin,
             background_color=(240, 217, 181)  # 木制棋盘的暖色调
         )
+        
+        # 初始化音频
+        self._init_audio()
     
+    def _init_audio(self):
+        """初始化游戏音频"""
+        try:
+            # 设置背景音乐和落子音效（使用相对路径）
+            self.board_ui.set_background_music("assets/board_bgm.mp3")
+            self.board_ui.set_piece_sound("assets/piece_sound.mp3")
+        except Exception as e:
+            print(f"音频初始化失败: {e}")
+
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
         
@@ -138,6 +157,9 @@ class GomokuGame:
         # 返回True表示落子成功，False表示位置无效或已被占用
         if self.board_state.move(x, y):
             print(f"人类玩家在 ({x}, {y}) 落子")
+            
+            # 播放落子音效
+            self.board_ui.play_piece_sound()
             
             # BoardState.get_board_copy() - 获取当前棋盘状态的副本
             # GomokuAI.set_board_state() - 更新AI的内部棋盘状态，保持与游戏状态同步
@@ -179,6 +201,9 @@ class GomokuGame:
         if self.board_state.move(x, y):
             print(f"AI在 ({x}, {y}) 落子")
             
+            # 播放落子音效
+            self.board_ui.play_piece_sound()
+            
             # 检查AI落子后游戏是否结束
             if self.board_state.is_game_over():
                 self._handle_game_end()
@@ -208,15 +233,250 @@ class GomokuGame:
             result = 2  # 平局（棋盘下满但无人获胜）
             print("平局！")
         
-        # 保存游戏结果到文件，供ResultMenu读取和显示
-        try:
-            with open("result.txt", "w", encoding='utf-8') as f:
-                f.write(str(result))
-        except Exception as e:
-            print(f"保存结果失败: {e}")
+        # 保存游戏结果到JSON文件（不生成评语）
+        self._save_game_result(result)
+        
+        # 存储结果供后续使用
+        self.current_game_result = result
         
         # 设置游戏结束标志，让游戏循环知道需要退出
         self.game_should_end = True
+
+    def _save_game_result(self, result):
+        """
+        保存游戏结果到JSON文件
+        
+        :param result: 游戏结果 (0=AI获胜, 1=人类获胜, 2=平局)
+        """
+        try:
+            # 使用相对路径指向game_database目录
+            results_dir = os.path.join(os.path.dirname(__file__), 'game_database')
+            os.makedirs(results_dir, exist_ok=True)
+            
+            results_file = os.path.join(results_dir, 'results.json')
+            
+            # 创建结果记录
+            result_record = {
+                'result': result,
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'human_player': self.human_player,
+                'ai_player': self.ai_player,
+                'move_count': len(self.board_state.move_history)
+            }
+            
+            # 读取现有结果
+            results_data = []
+            if os.path.exists(results_file):
+                try:
+                    with open(results_file, 'r', encoding='utf-8') as f:
+                        results_data = json.load(f)
+                        if not isinstance(results_data, list):
+                            results_data = []
+                except (json.JSONDecodeError, IOError):
+                    results_data = []
+            
+            # 追加新结果
+            results_data.append(result_record)
+            
+            # 写回文件
+            with open(results_file, 'w', encoding='utf-8') as f:
+                json.dump(results_data, f, ensure_ascii=False, indent=2)
+            
+            print(f"游戏结果已保存到: {results_file}")
+            
+        except Exception as e:
+            print(f"保存游戏结果失败: {e}")
+
+    def show_result(self):
+        """显示游戏结果 - 调用UI模块显示胜负结果和评语"""
+        
+        # 从保存的结果获取
+        if hasattr(self, 'current_game_result'):
+            result = self.current_game_result
+        else:
+            result = self._get_latest_result()
+        
+        if result is not None:
+            # 显示结果窗口，包含异步评语生成和打字机效果
+            result_confirmed, generated_comment = self.game_ui.show_result_menu_with_async_comment(
+                result=result, 
+                board_state=[row[:] for row in self.board_state.board],
+                move_history=[list(move) for move in self.board_state.move_history],
+                commentator=self.commentator
+            )
+            
+            # 在后台线程中保存历史记录，避免阻塞UI
+            if generated_comment:
+                self._save_history_async(generated_comment, result)
+            else:
+                self._save_history_async("这是一场精彩的对弈！", result)
+            
+            return result_confirmed
+        return True
+
+    def _save_history_async(self, comment, result):
+        """
+        异步保存历史记录，避免阻塞UI
+        
+        :param comment: 评语
+        :param result: 游戏结果
+        """
+        import threading
+        
+        def save_history():
+            try:
+                self.board_state.save_to_history(custom_comment=comment, game_result=result)
+                print("完整游戏记录已保存")
+            except Exception as e:
+                print(f"保存完整记录失败: {e}")
+                # 保存基本记录
+                try:
+                    self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=result)
+                    print("基本游戏记录已保存")
+                except Exception as e2:
+                    print(f"保存基本记录也失败: {e2}")
+        
+        # 创建后台线程保存历史记录
+        save_thread = threading.Thread(target=save_history)
+        save_thread.daemon = True
+        save_thread.start()
+
+    def _get_latest_result(self):
+        """
+        获取最新的游戏结果
+        
+        :return: int or None，最新的游戏结果
+        """
+        try:
+            results_file = os.path.join(os.path.dirname(__file__), 'game_database', 'results.json')
+            
+            if not os.path.exists(results_file):
+                return None
+            
+            with open(results_file, 'r', encoding='utf-8') as f:
+                results_data = json.load(f)
+                
+            if isinstance(results_data, list) and results_data:
+                # 返回最新（最后一个）结果
+                return results_data[-1]['result']
+                
+        except Exception as e:
+            print(f"读取游戏结果失败: {e}")
+        
+        return None
+
+    def show_history(self):
+        """显示历史对局记录"""
+        try:
+            # 确保游戏屏幕已初始化
+            if self.screen is None:
+                self._init_game_screen()
+            
+            # 创建历史记录UI实例
+            history_ui = HistoryUI(self.screen)
+            # 运行历史记录界面
+            history_ui.run()
+            
+            # 历史记录界面退出后，不需要特殊处理，会自动返回主菜单循环
+            
+        except Exception as e:
+            print(f"显示历史记录失败: {e}")
+            # 如果失败，创建临时屏幕显示错误信息
+            temp_screen = pygame.display.set_mode((800, 600))
+            temp_screen.fill((255, 255, 255))
+            font = pygame.font.Font(None, 36)
+            error_text = font.render(f"历史记录加载失败: {str(e)}", True, (255, 0, 0))
+            text_rect = error_text.get_rect(center=(400, 300))
+            temp_screen.blit(error_text, text_rect)
+            pygame.display.flip()
+            pygame.time.wait(2000)  # 显示2秒错误信息
+
+    def run_game_loop(self):
+        """运行游戏主循环 - 处理游戏进行中的逻辑"""
+        
+        # 初始化游戏屏幕和UI
+        self._init_game_screen()
+        
+        # 开始新游戏
+        self.start_game()
+        
+        ai_think_delay = 0  # AI思考延迟计数器，用于模拟AI思考时间
+        self.game_should_end = False  # 游戏结束标志
+        game_end_display_time = 0  # 游戏结束后的显示时间
+        
+        while self.running:
+            # 处理所有pygame事件（键盘、鼠标、窗口等）
+            if not self._handle_events():
+                break  # 如果返回False则退出游戏循环
+            
+            # 检查游戏是否应该结束
+            if self.game_should_end:
+                # 显示游戏结果一段时间后自动返回菜单
+                game_end_display_time += 1
+                if game_end_display_time > 180:  # 显示3秒（180帧 / 60FPS）
+                    break  # 退出游戏循环，返回主菜单
+            
+            # AI回合处理
+            if (self.game_active and 
+                self.board_state.current_player == self.ai_player):
+                
+                # 添加人工延迟，让AI看起来在"思考"
+                # 提升用户体验，避免AI瞬间落子
+                ai_think_delay += 1
+                if ai_think_delay > 30:  # 约0.5秒延迟（30帧 / 60FPS）
+                    self.handle_ai_move()
+                    ai_think_delay = 0
+            else:
+                ai_think_delay = 0  # 非AI回合时重置延迟计数器
+            
+            # 绘制游戏画面
+            self._draw_game()
+            
+            # 控制游戏帧率为60FPS
+            self.clock.tick(60)
+
+    def run(self):
+        """运行游戏主程序 - 管理整个游戏的生命周期"""
+        
+        try:
+            # 主程序循环：菜单 -> 游戏 -> 结果 -> 菜单...
+            while self.running:
+                # GameUI.show_start_menu() - 显示开始菜单
+                # 返回用户选择："start"(开始游戏), "history"(历史记录), "settings"(设置), "quit"(退出)
+                choice = self.game_ui.show_start_menu()
+                
+                if choice == "start":
+                    # 开始游戏：进入游戏主循环
+                    self.run_game_loop()
+                    
+                    # 游戏结束后显示结果，等待用户确认
+                    if hasattr(self, 'game_should_end') and self.game_should_end:
+                        self.show_result()
+                
+                elif choice == "history":
+                    # 显示历史记录
+                    self.show_history()
+                    
+                elif choice == "settings":
+                    # 设置菜单（功能预留，暂未实现）
+                    print("设置功能尚未实现")
+                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
+                    
+                elif choice == "quit":
+                    # 退出游戏
+                    self.running = False
+                
+                else:
+                    # 处理异常情况（如窗口被强制关闭）
+                    self.running = False
+        
+        except Exception as e:
+            print(f"游戏运行错误: {e}")
+        
+        finally:
+            # 清理资源：关闭pygame窗口，退出程序
+            # GameUI.quit() - 调用pygame.quit()和sys.exit()
+            self.game_ui.quit()
 
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
@@ -311,99 +571,6 @@ class GomokuGame:
                         self.handle_human_move(x, y)
         
         return True  # 继续游戏循环
-    
-    def run_game_loop(self):
-        """运行游戏主循环 - 处理游戏进行中的逻辑"""
-        
-        # 初始化游戏屏幕和UI
-        self._init_game_screen()
-        
-        # 开始新游戏
-        self.start_game()
-        
-        ai_think_delay = 0  # AI思考延迟计数器，用于模拟AI思考时间
-        self.game_should_end = False  # 游戏结束标志
-        game_end_display_time = 0  # 游戏结束后的显示时间
-        
-        while self.running:
-            # 处理所有pygame事件（键盘、鼠标、窗口等）
-            if not self._handle_events():
-                break  # 如果返回False则退出游戏循环
-            
-            # 检查游戏是否应该结束
-            if self.game_should_end:
-                # 显示游戏结果一段时间后自动返回菜单
-                game_end_display_time += 1
-                if game_end_display_time > 180:  # 显示3秒（180帧 / 60FPS）
-                    break  # 退出游戏循环，返回主菜单
-            
-            # AI回合处理
-            if (self.game_active and 
-                self.board_state.current_player == self.ai_player):
-                
-                # 添加人工延迟，让AI看起来在"思考"
-                # 提升用户体验，避免AI瞬间落子
-                ai_think_delay += 1
-                if ai_think_delay > 30:  # 约0.5秒延迟（30帧 / 60FPS）
-                    self.handle_ai_move()
-                    ai_think_delay = 0
-            else:
-                ai_think_delay = 0  # 非AI回合时重置延迟计数器
-            
-            # 绘制游戏画面
-            self._draw_game()
-            
-            # 控制游戏帧率为60FPS
-            self.clock.tick(60)
-
-    def show_result(self):
-        """显示游戏结果 - 调用UI模块显示胜负结果"""
-        
-        # 检查结果文件是否存在
-        if os.path.exists("result.txt"):
-            # GameUI.show_result_menu() - 显示结果窗口
-            # 参数：display_time指定显示时长（毫秒）
-            # 该方法会读取result.txt文件并显示相应的结果文本
-            self.game_ui.show_result_menu(display_time=3000)
-    
-    def run(self):
-        """运行游戏主程序 - 管理整个游戏的生命周期"""
-        
-        try:
-            # 主程序循环：菜单 -> 游戏 -> 结果 -> 菜单...
-            while self.running:
-                # GameUI.show_start_menu() - 显示开始菜单
-                # 返回用户选择："start"(开始游戏), "settings"(设置), "quit"(退出)
-                choice = self.game_ui.show_start_menu()
-                
-                if choice == "start":
-                    # 开始游戏：进入游戏主循环
-                    self.run_game_loop()
-                    
-                    # 游戏结束后自动显示结果
-                    if hasattr(self, 'game_should_end') and self.game_should_end:
-                        self.show_result()
-                    
-                elif choice == "settings":
-                    # 设置菜单（功能预留，暂未实现）
-                    print("设置功能尚未实现")
-                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
-                    
-                elif choice == "quit":
-                    # 退出游戏
-                    self.running = False
-                
-                else:
-                    # 处理异常情况（如窗口被强制关闭）
-                    self.running = False
-        
-        except Exception as e:
-            print(f"游戏运行错误: {e}")
-        
-        finally:
-            # 清理资源：关闭pygame窗口，退出程序
-            # GameUI.quit() - 调用pygame.quit()和sys.exit()
-            self.game_ui.quit()
 
 def main():
     """
