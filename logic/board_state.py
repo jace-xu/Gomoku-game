@@ -230,7 +230,7 @@ class BoardState:
         os.makedirs(os.path.dirname(history_path), exist_ok=True)
 
         # 生成对局评语
-        if custom_comment:
+        if custom_comment and custom_comment != "评语生成中...":
             comment_text = custom_comment
         elif COMMENT_AVAILABLE and generate_comment is not None:
             try:
@@ -241,9 +241,9 @@ class BoardState:
                 )
             except Exception as exc:
                 print(f"评语生成失败: {exc}")
-                comment_text = "下的很好"
+                comment_text = "这是一场精彩的对弈！"
         else:
-            comment_text = "下的很好"
+            comment_text = "这是一场精彩的对弈！"
 
         record = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

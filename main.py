@@ -236,13 +236,6 @@ class GomokuGame:
         # 保存游戏结果到JSON文件（不生成评语）
         self._save_game_result(result)
         
-        # 先保存历史记录（不包含评语）
-        try:
-            self.board_state.save_to_history(custom_comment="评语生成中...", game_result=result)
-            print("游戏记录已保存到历史数据库")
-        except Exception as e:
-            print(f"保存历史记录失败: {e}")
-        
         # 存储结果供后续使用
         self.current_game_result = result
         
@@ -311,6 +304,22 @@ class GomokuGame:
                 move_history=[list(move) for move in self.board_state.move_history],
                 commentator=self.commentator
             )
+            
+            # 结果确认后，生成并保存完整评语到历史记录
+            try:
+                final_comment = self.commentator.generate_comment(
+                    [row[:] for row in self.board_state.board],
+                    [list(move) for move in self.board_state.move_history],
+                    result
+                )
+                # 保存完整历史记录
+                self.board_state.save_to_history(custom_comment=final_comment, game_result=result)
+                print("完整游戏记录已保存")
+            except Exception as e:
+                print(f"保存完整记录失败: {e}")
+                # 保存基本记录
+                self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=result)
+            
             return result_confirmed
         return True
 

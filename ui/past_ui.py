@@ -38,6 +38,208 @@ class Button:
             return True
         return False
 
+class GameDetailUI:
+    """游戏详细记录查看界面"""
+    
+    def __init__(self, screen: pygame.Surface, game_data: Dict):
+        self.screen = screen
+        self.game_data = game_data
+        self.font = pygame.font.SysFont('SimHei', 24)
+        self.small_font = pygame.font.SysFont('SimHei', 18)
+        self.title_font = pygame.font.SysFont('SimHei', 32)
+        
+        # 创建返回按钮
+        self.return_button = Button("返回", 10, 10, 80, 35, (70, 130, 180))
+        
+        # 计算布局
+        self.screen_width = screen.get_width()
+        self.screen_height = screen.get_height()
+        
+        # 棋盘显示区域
+        self.board_size = 200  # 棋盘显示大小
+        self.board_x = 50
+        self.board_y = 60
+        
+        # 信息显示区域
+        self.info_x = self.board_x + self.board_size + 30
+        self.info_y = self.board_y
+    
+    def run(self):
+        """运行详细记录查看界面"""
+        running = True
+        clock = pygame.time.Clock()
+        
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                
+                # 处理返回按钮点击
+                if self.return_button.handle_event(event):
+                    running = False
+            
+            self._draw_detail_view()
+            pygame.display.flip()
+            clock.tick(60)
+    
+    def _draw_detail_view(self):
+        """绘制详细记录视图"""
+        self.screen.fill(BG_COLOR)
+        
+        # 绘制标题
+        title = self.title_font.render("对局详情", True, FONT_COLOR)
+        self.screen.blit(title, (self.screen_width // 2 - title.get_width() // 2, 15))
+        
+        # 绘制返回按钮
+        self.return_button.draw(self.screen)
+        
+        # 绘制棋盘
+        self._draw_large_board()
+        
+        # 绘制游戏信息
+        self._draw_game_info()
+        
+        # 绘制评语
+        self._draw_comment()
+    
+    def _draw_large_board(self):
+        """绘制大棋盘"""
+        board_state = self.game_data.get('board', [])
+        if not board_state:
+            return
+        
+        # 绘制背景
+        board_rect = pygame.Rect(self.board_x, self.board_y, self.board_size, self.board_size)
+        pygame.draw.rect(self.screen, (240, 217, 181), board_rect)
+        pygame.draw.rect(self.screen, (0, 0, 0), board_rect, 2)
+        
+        board_len = len(board_state)
+        if board_len == 0:
+            return
+        
+        cell_size = self.board_size // board_len
+        
+        # 绘制网格线
+        for i in range(board_len):
+            # 水平线
+            start_x = self.board_x
+            start_y = self.board_y + i * cell_size
+            end_x = self.board_x + self.board_size
+            pygame.draw.line(self.screen, (100, 100, 100), (start_x, start_y), (end_x, start_y), 1)
+            
+            # 垂直线
+            start_x = self.board_x + i * cell_size
+            start_y = self.board_y
+            end_y = self.board_y + self.board_size
+            pygame.draw.line(self.screen, (100, 100, 100), (start_x, start_y), (start_x, end_y), 1)
+        
+        # 绘制棋子
+        for i in range(board_len):
+            for j in range(len(board_state[i])):
+                piece = board_state[i][j]
+                if piece == 0:
+                    continue
+                
+                center_x = self.board_x + j * cell_size + cell_size // 2
+                center_y = self.board_y + i * cell_size + cell_size // 2
+                radius = max(3, cell_size // 3)
+                
+                if piece == 1:  # 黑子
+                    pygame.draw.circle(self.screen, (30, 30, 30), (center_x, center_y), radius)
+                elif piece == 2:  # 白子
+                    pygame.draw.circle(self.screen, (220, 220, 220), (center_x, center_y), radius)
+                    pygame.draw.circle(self.screen, (0, 0, 0), (center_x, center_y), radius, 1)
+    
+    def _draw_game_info(self):
+        """绘制游戏信息"""
+        y_offset = self.info_y
+        line_height = 25
+        
+        # 时间
+        timestamp = self.game_data.get('timestamp', '未知时间')
+        time_text = self.font.render(f"时间: {timestamp}", True, FONT_COLOR)
+        self.screen.blit(time_text, (self.info_x, y_offset))
+        y_offset += line_height
+        
+        # 游戏结果
+        result = self.game_data.get('result', None)
+        if result is not None:
+            if result == 1:
+                result_text = "游戏结果: 人类获胜"
+                result_color = (0, 150, 0)
+            elif result == 0:
+                result_text = "游戏结果: AI获胜"
+                result_color = (150, 0, 0)
+            elif result == 2:
+                result_text = "游戏结果: 平局"
+                result_color = (0, 0, 150)
+            else:
+                result_text = "游戏结果: 未知"
+                result_color = FONT_COLOR
+            
+            result_surface = self.font.render(result_text, True, result_color)
+            self.screen.blit(result_surface, (self.info_x, y_offset))
+            y_offset += line_height
+        
+        # 落子数
+        moves = len(self.game_data.get('moves', []))
+        moves_text = self.font.render(f"总步数: {moves}", True, FONT_COLOR)
+        self.screen.blit(moves_text, (self.info_x, y_offset))
+        y_offset += line_height * 2
+        
+        # 分割线
+        pygame.draw.line(self.screen, FONT_COLOR, 
+                        (self.info_x, y_offset), 
+                        (self.screen_width - 50, y_offset), 2)
+    
+    def _draw_comment(self):
+        """绘制评语"""
+        comment_y = self.info_y + 120
+        
+        # 评语标题
+        comment_title = self.font.render("AI评语:", True, FONT_COLOR)
+        self.screen.blit(comment_title, (self.info_x, comment_y))
+        comment_y += 30
+        
+        # 评语内容
+        comment = self.game_data.get('comment', '暂无评语')
+        if comment == "评语生成中...":
+            comment = "评语生成失败，但这是一场精彩的对弈！"
+        
+        # 多行显示评语
+        max_width = self.screen_width - self.info_x - 50
+        self._draw_multiline_text(comment, self.info_x, comment_y, max_width)
+    
+    def _draw_multiline_text(self, text, x, y, max_width):
+        """绘制多行文本"""
+        words = text.split(' ')
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_surface = self.small_font.render(test_line, True, FONT_COLOR)
+            
+            if test_surface.get_width() <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        line_height = self.small_font.get_height() + 3
+        for i, line in enumerate(lines):
+            line_surface = self.small_font.render(line, True, FONT_COLOR)
+            self.screen.blit(line_surface, (x, y + i * line_height))
+
 class HistoryUI:
     """
     历史对局记录界面类，实现历史数据加载、浏览和对局快照绘制功能，
@@ -53,11 +255,11 @@ class HistoryUI:
         """
         self.screen = disp_surface
         self.font = pygame.font.SysFont('SimHei', 28)      # 标题字体
-        self.small_font = pygame.font.SysFont('SimHei', 18) # 列表字体
+        self.small_font = pygame.font.SysFont('SimHei', 16) # 列表字体
         self.history_data = self.load_history_data()        # 历史对局数据列表
         self.scroll_offset = 0                              # 当前滚动偏移
-        self.item_height = 130                              # 每条历史快照高度
-        self.margin = 18                                    # 快照之间的间距
+        self.item_height = 100                              # 每条历史快照高度（减小）
+        self.margin = 15                                    # 快照之间的间距
         
         # 创建返回按钮
         self.return_button = Button("Back", 10, 10, 100, 40, (70, 130, 180))
@@ -76,7 +278,8 @@ class HistoryUI:
             with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if isinstance(data, list):
-                    return data
+                    # 按时间倒序排列，最新的在前面
+                    return sorted(data, key=lambda x: x.get('timestamp', ''), reverse=True)
                 else:
                     print("历史记录文件不是列表格式。")
         except json.JSONDecodeError as json_err:
@@ -107,7 +310,7 @@ class HistoryUI:
             title = self.font.render("历史对局记录", True, FONT_COLOR)
             self.screen.blit(title, (screen_width // 2 - title.get_width() // 2, 20))
 
-            # 事件处理：退出、滚动、按钮点击
+            # 事件处理：退出、滚动、按钮点击、项目点击
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -129,6 +332,13 @@ class HistoryUI:
                             self.scroll_offset + SCROLL_SPEED,
                             max(0, len(self.history_data) * self.item_height - (screen_height - 80))
                         )
+                    elif event.button == 1:  # 左键点击
+                        # 检查是否点击了历史记录项
+                        clicked_index = self._get_clicked_item(event.pos)
+                        if clicked_index is not None:
+                            # 显示详细记录
+                            detail_ui = GameDetailUI(self.screen, self.history_data[clicked_index])
+                            detail_ui.run()
                 
                 # 处理返回按钮点击
                 if self.return_button.handle_event(event):
@@ -145,7 +355,7 @@ class HistoryUI:
                     item_rect = pygame.Rect(40, start_y + i*self.item_height, screen_width-80, self.item_height - self.margin)
                     if item_rect.bottom > 60 and item_rect.top < screen_height:
                         try:
-                            self.draw_match_snapshot(match, item_rect)
+                            self.draw_match_snapshot(match, item_rect, i)
                         except Exception as snapshot_exc:
                             error_text = self.small_font.render(f"快照显示异常: {snapshot_exc}", True, (200, 50, 50))
                             self.screen.blit(error_text, (item_rect.x + 10, item_rect.y + 40))
@@ -154,67 +364,94 @@ class HistoryUI:
             self.return_button.draw(self.screen)
             
             # 绘制操作提示
-            hint_text = self.small_font.render("提示: 使用方向键或鼠标滚轮滚动，ESC或点击返回按钮退出", True, (100, 100, 100))
+            hint_text = self.small_font.render("提示: 点击记录查看详情，方向键或鼠标滚轮滚动，ESC返回", True, (100, 100, 100))
             self.screen.blit(hint_text, (10, screen_height - 25))
             
             pygame.display.flip()
             clock.tick(60)
 
-    def draw_match_snapshot(self, match_data: Dict, rect: pygame.Rect) -> None:
+    def _get_clicked_item(self, mouse_pos):
+        """获取点击的历史记录项索引"""
+        if not self.history_data:
+            return None
+        
+        screen_width = self.screen.get_width()
+        start_y = 70 - self.scroll_offset
+        
+        for i in range(len(self.history_data)):
+            item_rect = pygame.Rect(40, start_y + i*self.item_height, screen_width-80, self.item_height - self.margin)
+            if item_rect.collidepoint(mouse_pos):
+                return i
+        return None
+
+    def draw_match_snapshot(self, match_data: Dict, rect: pygame.Rect, index: int) -> None:
         """
         绘制单场对局快照
-        包括时间戳、评语、棋盘快照、落子数等
+        包括时间戳、评语摘要、棋盘快照、落子数等
 
         :param match_data: 单场对局的数据字典
         :param rect: pygame.Rect 对象，快照绘制区域
+        :param index: 记录索引
         :return: None
         """
         try:
-            # 绘制快照背景框
-            pygame.draw.rect(self.screen, (220, 220, 220), rect, border_radius=8)
+            # 绘制快照背景框（带点击效果）
+            pygame.draw.rect(self.screen, (230, 230, 230), rect, border_radius=5)
+            pygame.draw.rect(self.screen, (180, 180, 180), rect, 1, border_radius=5)
+            
             # 显示时间戳
             ts = match_data.get('timestamp', '未知时间')
             ts_text = self.small_font.render(f"时间: {ts}", True, FONT_COLOR)
-            self.screen.blit(ts_text, (rect.x + 10, rect.y + 10))
-
-            # 显示对局评语
-            comment = match_data.get('comment', '')
-            cm_text = self.small_font.render(f"评语: {comment}", True, FONT_COLOR)
-            self.screen.blit(cm_text, (rect.x + 200, rect.y + 10))
+            self.screen.blit(ts_text, (rect.x + 10, rect.y + 8))
 
             # 显示游戏结果
             result = match_data.get('result', None)
             if result is not None:
                 if result == 1:
-                    result_text = "结果: 人类获胜"
-                    result_color = (0, 150, 0)  # 绿色
+                    result_text = "人类获胜"
+                    result_color = (0, 150, 0)
                 elif result == 0:
-                    result_text = "结果: AI获胜"
-                    result_color = (150, 0, 0)  # 红色
+                    result_text = "AI获胜"
+                    result_color = (150, 0, 0)
                 elif result == 2:
-                    result_text = "结果: 平局"
-                    result_color = (0, 0, 150)  # 蓝色
+                    result_text = "平局"
+                    result_color = (0, 0, 150)
                 else:
-                    result_text = "结果: 未知"
+                    result_text = "未知"
                     result_color = FONT_COLOR
                 
                 result_surface = self.small_font.render(result_text, True, result_color)
-                self.screen.blit(result_surface, (rect.x + 500, rect.y + 10))
+                self.screen.blit(result_surface, (rect.x + 10, rect.y + 30))
+
+            # 显示评语摘要（最多显示前30个字符）
+            comment = match_data.get('comment', '暂无评语')
+            if comment == "评语生成中...":
+                comment = "评语生成失败"
+            
+            comment_summary = comment[:30] + "..." if len(comment) > 30 else comment
+            cm_text = self.small_font.render(f"评语: {comment_summary}", True, FONT_COLOR)
+            self.screen.blit(cm_text, (rect.x + 150, rect.y + 8))
 
             # 棋盘快照（小型棋盘）
             board_state = match_data.get('board', None)
             if isinstance(board_state, list):
-                self._draw_board_snapshot(board_state, rect.x + 20, rect.y + 40, size=70)
+                self._draw_board_snapshot(board_state, rect.x + 15, rect.y + 50, size=40)
+                
             # 落子数
             moves = len(match_data.get('moves', []))
-            mv_text = self.small_font.render(f"落子数: {moves}", True, FONT_COLOR)
-            self.screen.blit(mv_text, (rect.x + 400, rect.y + 45))
+            mv_text = self.small_font.render(f"步数: {moves}", True, FONT_COLOR)
+            self.screen.blit(mv_text, (rect.x + 150, rect.y + 30))
+            
+            # 点击提示
+            click_hint = self.small_font.render("点击查看详情 →", True, (100, 100, 100))
+            self.screen.blit(click_hint, (rect.x + rect.width - 120, rect.y + rect.height - 25))
+            
         except Exception as exc:
             # 单场快照绘制异常，绘制错误提示
             error_text = self.small_font.render(f"快照异常: {exc}", True, (200, 50, 50))
             self.screen.blit(error_text, (rect.x + 10, rect.y + 40))
 
-    def _draw_board_snapshot(self, board_state: List[List[int]], x: int, y: int, size: int = 70) -> None:
+    def _draw_board_snapshot(self, board_state: List[List[int]], x: int, y: int, size: int = 40) -> None:
         """
         绘制棋盘快照（小棋盘）
 
@@ -225,21 +462,30 @@ class HistoryUI:
         :return: None
         """
         if not isinstance(board_state, list) or not board_state:
-            # 确保类型是 list[list[int]]，否则直接返回
             return
+            
         rows = len(board_state)
         cols = len(board_state[0]) if rows else 0
         cell = size // max(rows, cols, 1)
+        
+        # 绘制棋盘背景
+        board_rect = pygame.Rect(x, y, size, size)
+        pygame.draw.rect(self.screen, (240, 217, 181), board_rect)
+        pygame.draw.rect(self.screen, (100, 100, 100), board_rect, 1)
+        
         for i in range(rows):
             for j in range(cols):
-                rect = pygame.Rect(x + j * cell, y + i * cell, cell, cell)
-                pygame.draw.rect(self.screen, (200, 200, 200), rect, 1)
+                center_x = x + j * cell + cell // 2
+                center_y = y + i * cell + cell // 2
+                radius = max(1, cell // 4)
+                
                 if board_state[i][j] == 1:
                     # 黑子
-                    pygame.draw.circle(self.screen, (30, 30, 30), rect.center, cell // 3)
+                    pygame.draw.circle(self.screen, (30, 30, 30), (center_x, center_y), radius)
                 elif board_state[i][j] == 2:
                     # 白子
-                    pygame.draw.circle(self.screen, (220, 220, 220), rect.center, cell // 3)
+                    pygame.draw.circle(self.screen, (220, 220, 220), (center_x, center_y), radius)
+                    pygame.draw.circle(self.screen, (100, 100, 100), (center_x, center_y), radius, 1)
 
     def run(self) -> None:
         """
