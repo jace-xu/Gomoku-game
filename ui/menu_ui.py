@@ -13,6 +13,7 @@ GRAY = (200, 200, 200)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+BEIGE = (245, 245, 220)  # 米白色
 
 class Button:
     """按钮类"""
@@ -109,22 +110,22 @@ class StartMenu:
                    (self.screen_width - button_width) // 2, 
                    start_y, 
                    button_width, button_height, 
-                   color=GREEN, font=self.font),
+                   color=BEIGE, text_color=BLACK, font=self.font),
             Button("History", 
                    (self.screen_width - button_width) // 2, 
                    start_y + button_height + button_spacing, 
                    button_width, button_height, 
-                   color=BLUE, font=self.font),
+                   color=BEIGE, text_color=BLACK, font=self.font),
             Button("Settings", 
                    (self.screen_width - button_width) // 2, 
                    start_y + 2 * (button_height + button_spacing), 
                    button_width, button_height, 
-                   color=BLUE, font=self.font),
+                   color=BEIGE, text_color=BLACK, font=self.font),
             Button("Quit", 
                    (self.screen_width - button_width) // 2, 
                    start_y + 3 * (button_height + button_spacing), 
                    button_width, button_height, 
-                   color=RED, font=self.font)
+                   color=BEIGE, text_color=BLACK, font=self.font)
         ]
 
     def _load_background(self):
