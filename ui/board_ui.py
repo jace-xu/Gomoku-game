@@ -131,7 +131,6 @@ class BoardUI:
         :param background_path: 背景图片路径
         """
         try:
-            import pygame
             # 加载新背景图片
             new_background = pygame.image.load(background_path).convert()
             # 缩放到适合的尺寸（如果需要的话）

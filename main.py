@@ -114,7 +114,10 @@ class GomokuGame:
         
         # 初始化音频
         self._init_audio()
-    
+        
+        # 初始化设置UI
+        self._init_setting_ui()
+
     def _init_audio(self):
         """初始化游戏音频"""
         try:
@@ -123,6 +126,17 @@ class GomokuGame:
             self.board_ui.set_piece_sound("assets/piece_sound.mp3")
         except Exception as e:
             print(f"音频初始化失败: {e}")
+
+    def _init_setting_ui(self):
+        """初始化设置UI"""
+        if self.screen and self.ai and self.board_ui:
+            self.setting_ui = SettingUI(
+                screen=self.screen,
+                move_logic=self.ai,
+                board_ui=self.board_ui,
+                assets_path="assets",
+                background_image="assets/loadbackground.jpg"
+            )
 
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
