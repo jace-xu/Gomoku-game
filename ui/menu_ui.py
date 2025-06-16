@@ -610,6 +610,32 @@ class GameUI:
         self.start_menu = StartMenu(self.screen_width, self.screen_height, title)
         return self.start_menu.run()
 
+    def show_settings_menu(self, screen, move_logic, board_ui, assets_path="assets", background_image="assets/loadbackground.jpg"):
+        """
+        显示设置菜单
+        
+        :param screen: pygame窗口Surface对象
+        :param move_logic: 游戏逻辑对象
+        :param board_ui: 棋盘UI对象
+        :param assets_path: 资源文件夹路径
+        :param background_image: 背景图片路径
+        :return: bool，用户是否正常退出设置界面
+        """
+        try:
+            from ui.setting_ui import SettingUI
+            setting_ui = SettingUI(
+                screen=screen,
+                move_logic=move_logic,
+                board_ui=board_ui,
+                assets_path=assets_path,
+                background_image=background_image
+            )
+            setting_ui.show()
+            return True
+        except Exception as e:
+            print(f"显示设置界面失败: {e}")
+            return False
+
     def show_result_menu(self, result=None, results_file=None, display_time=3000):
         """
         显示结算菜单

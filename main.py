@@ -11,6 +11,7 @@ from logic.comment import GameCommentator # AI评语生成模块
 from ui.menu_ui import GameUI             # 游戏UI管理模块，负责菜单显示
 from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制和交互
 from ui.past_ui import HistoryUI          # 历史记录UI模块
+from ui.setting_ui import SettingUI       # 设置UI模块
 
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
@@ -49,6 +50,9 @@ class GomokuGame:
         
         # 初始化评语生成器
         self.commentator = GameCommentator()
+        
+        # 设置UI实例
+        self.setting_ui = None
         
         # 调用初始化方法
         self._init_game_components()
@@ -458,9 +462,8 @@ class GomokuGame:
                     self.show_history()
                     
                 elif choice == "settings":
-                    # 设置菜单（功能预留，暂未实现）
-                    print("设置功能尚未实现")
-                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
+                    # 显示设置界面
+                    self.show_settings()
                     
                 elif choice == "quit":
                     # 退出游戏
@@ -571,6 +574,35 @@ class GomokuGame:
                         self.handle_human_move(x, y)
         
         return True  # 继续游戏循环
+
+    def show_settings(self):
+        """显示设置界面"""
+        try:
+            # 确保游戏屏幕已初始化
+            if self.screen is None:
+                self._init_game_screen()
+            
+            # 确保设置UI已初始化
+            if self.setting_ui is None:
+                self._init_setting_ui()
+            
+            # 显示设置界面
+            if self.setting_ui:
+                self.setting_ui.show()
+            else:
+                print("设置UI初始化失败")
+                
+        except Exception as e:
+            print(f"显示设置界面失败: {e}")
+            # 如果失败，创建临时屏幕显示错误信息
+            temp_screen = pygame.display.set_mode((800, 600))
+            temp_screen.fill((255, 255, 255))
+            font = pygame.font.Font(None, 36)
+            error_text = font.render(f"Settings load failed: {str(e)}", True, (255, 0, 0))
+            text_rect = error_text.get_rect(center=(400, 300))
+            temp_screen.blit(error_text, text_rect)
+            pygame.display.flip()
+            pygame.time.wait(2000)  # 显示2秒错误信息
 
 def main():
     """

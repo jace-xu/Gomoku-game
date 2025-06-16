@@ -109,6 +109,42 @@ class BoardUI:
         """
         pygame.mixer.music.unpause()
 
+    def set_sound_level(self, level):
+        """
+        设置音效音量等级
+        
+        :param level: 音量等级，0-100
+        """
+        try:
+            # 设置落子音效音量
+            if self.piece_sound:
+                volume = level / 100.0
+                self.piece_sound.set_volume(volume)
+                print(f"音效音量设置为: {level}%")
+        except Exception as e:
+            print(f"设置音效音量失败: {e}")
+
+    def set_background(self, background_path):
+        """
+        设置棋盘背景图片
+        
+        :param background_path: 背景图片路径
+        """
+        try:
+            import pygame
+            # 加载新背景图片
+            new_background = pygame.image.load(background_path).convert()
+            # 缩放到适合的尺寸（如果需要的话）
+            screen_size = self.screen.get_size()
+            self.background_color = None  # 使用图片背景时清除颜色背景
+            self.background_image = pygame.transform.scale(new_background, screen_size)
+            print(f"背景图片已更新: {background_path}")
+        except Exception as e:
+            print(f"设置背景图片失败: {e}")
+            # 如果失败，恢复默认颜色背景
+            self.background_color = (240, 217, 181)
+            self.background_image = None
+
     def get_required_size(self):
         """
         获取棋盘UI所需的最小屏幕尺寸
@@ -156,7 +192,10 @@ class BoardUI:
 
     def draw_background(self):
         """绘制背景"""
-        self.screen.fill(self.background_color)
+        if hasattr(self, 'background_image') and self.background_image:
+            self.screen.blit(self.background_image, (0, 0))
+        else:
+            self.screen.fill(self.background_color)
 
     def draw_board(self):
         """绘制棋盘网格。"""
