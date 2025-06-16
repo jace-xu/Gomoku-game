@@ -204,11 +204,9 @@ class BoardUI:
         if self.use_background_image and self.background_image:
             # 使用背景图片
             self.screen.blit(self.background_image, (0, 0))
-            print("绘制背景图片")
         else:
             # 使用背景颜色
             self.screen.fill(self.background_color)
-            print("绘制背景颜色")
 
     def draw_board(self):
         """绘制棋盘网格。"""
@@ -363,6 +361,59 @@ class BoardUI:
         elif self.settings_button_rect and self.settings_button_rect.collidepoint(mouse_pos):
             return "settings"
         return None
+
+    def board_to_pixel(self, board_x, board_y):
+        """
+        将棋盘坐标转换为像素坐标
+        
+        :param board_x: 棋盘x坐标（列）
+        :param board_y: 棋盘y坐标（行）
+        :return: (pixel_x, pixel_y) 像素坐标
+        """
+        pixel_x = self.margin + board_x * self.grid_size
+        pixel_y = self.margin + board_y * self.grid_size
+        return pixel_x, pixel_y
+
+    def pixel_to_board(self, pixel_x, pixel_y):
+        """
+        将像素坐标转换为棋盘坐标
+        
+        :param pixel_x: 像素x坐标
+        :param pixel_y: 像素y坐标
+        :return: (board_x, board_y) 棋盘坐标，如果超出范围则返回None
+        """
+        # 检查是否在棋盘区域内
+        if (pixel_x < self.margin or pixel_x > self.margin + (self.board_size - 1) * self.grid_size or
+            pixel_y < self.margin or pixel_y > self.margin + (self.board_size - 1) * self.grid_size):
+            return None
+        
+        # 计算棋盘坐标
+        board_x = round((pixel_x - self.margin) / self.grid_size)
+        board_y = round((pixel_y - self.margin) / self.grid_size)
+        
+        # 确保坐标在有效范围内
+        if 0 <= board_x < self.board_size and 0 <= board_y < self.board_size:
+            return board_x, board_y
+        else:
+            return None
+
+    def is_position_valid(self, x, y):
+        """
+        检查位置是否有效
+        
+        :param x: x坐标
+        :param y: y坐标
+        :return: bool，位置是否有效
+        """
+        return 0 <= x < self.board_size and 0 <= y < self.board_size
+
+    def play_piece_sound(self):
+        """播放落子音效"""
+        try:
+            if self.piece_sound:
+                self.piece_sound.play()
+        except Exception as e:
+            print(f"播放落子音效失败: {e}")
 
     def clear_screen(self):
         """完全清除屏幕内容"""
