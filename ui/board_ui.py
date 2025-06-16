@@ -204,11 +204,9 @@ class BoardUI:
         if self.use_background_image and self.background_image:
             # 使用背景图片
             self.screen.blit(self.background_image, (0, 0))
-            print("绘制背景图片")
         else:
             # 使用背景颜色
             self.screen.fill(self.background_color)
-            print("绘制背景颜色")
 
     def draw_board(self):
         """绘制棋盘网格。"""

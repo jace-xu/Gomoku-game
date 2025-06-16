@@ -1,3 +1,4 @@
 {
-  "background_path": "assets\\backgrounds\\loadbackground.jpg"
+  "background_path": "assets\\backgrounds\\loadbackground.jpg",
+  "difficulty": "Normal"
 }
