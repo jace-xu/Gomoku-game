@@ -108,10 +108,6 @@ class GomokuGame:
         # 如果board_ui已初始化，立即应用背景
         if self.board_ui:
             self.board_ui.set_background(background_path)
-            if background_path:
-                print(f"背景已应用到游戏: {background_path}")
-            else:
-                print("背景已切换到默认米白色")
 
     def _init_game_components(self):
         """初始化游戏核心组件 - 创建各个模块的实例"""
@@ -178,11 +174,9 @@ class GomokuGame:
         # 应用保存的背景设置
         if self.current_background and os.path.exists(self.current_background):
             self.board_ui.set_background(self.current_background)
-            print(f"应用保存的背景: {self.current_background}")
         else:
             # 如果没有保存的背景或背景文件不存在，使用默认背景
             self.board_ui.set_background(None)
-            print("使用默认米白色背景")
         
         # 初始化音频
         self._init_audio()
@@ -582,8 +576,7 @@ class GomokuGame:
         # 完全清除屏幕
         self.screen.fill((0, 0, 0))  # 用黑色清除屏幕
         
-        # 先绘制背景
-        # BoardUI.draw_background() - 绘制背景（颜色或图片）
+        # 先绘制背景 - 删除任何可能的调试输出
         self.board_ui.draw_background()
         
         # BoardUI.draw_board() - 绘制棋盘网格
@@ -728,6 +721,8 @@ def main():
         print(f"程序启动失败: {e}")
         input("按任意键退出...")
 
+
 # Python脚本入口点
 if __name__ == "__main__":
+    main()
     main()
