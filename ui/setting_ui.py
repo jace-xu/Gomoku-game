@@ -122,15 +122,24 @@ class SettingUI:
         播放指定BGM文件，或静音（bgm_name为None）。
         :param bgm_name: BGM文件名或None
         """
-        if bgm_name is None:
-            pygame.mixer.music.stop()
-        else:
-            bgm_file_path = os.path.join(self.bgm_path, bgm_name)
-            try:
-                pygame.mixer.music.load(bgm_file_path)
-                pygame.mixer.music.play(-1)
-            except (OSError, pygame.error) as e:
-                print(f"BGM加载失败: {e}")
+        try:
+            if hasattr(self.board_ui, 'set_bgm_file'):
+                # 如果board_ui有set_bgm_file方法，使用它
+                self.board_ui.set_bgm_file(bgm_name)
+            else:
+                # 否则使用原来的方法
+                if bgm_name is None:
+                    pygame.mixer.music.stop()
+                else:
+                    bgm_file_path = os.path.join(self.bgm_path, bgm_name)
+                    try:
+                        pygame.mixer.music.load(bgm_file_path)
+                        pygame.mixer.music.play(-1)
+                        pygame.mixer.music.set_volume(self.sound_level / 100.0)
+                    except (OSError, pygame.error) as e:
+                        print(f"BGM加载失败: {e}")
+        except Exception as e:
+            print(f"播放BGM异常: {e}")
 
     @staticmethod
     def _set_bgm_volume(level):
@@ -268,6 +277,7 @@ class SettingUI:
                                     if self.selected_bgm != bgm:
                                         self.selected_bgm = bgm
                                         self._play_bgm(bgm)
+                                        # 确保音量设置正确
                                         self._set_bgm_volume(self.sound_level)
                                     break
                         # 返回按钮
@@ -443,6 +453,11 @@ class SettingUI:
         try:
             if hasattr(self.board_ui, "set_sound_level"):
                 self.board_ui.set_sound_level(level)
+            else:
+                # 如果board_ui没有set_sound_level方法，直接设置pygame音量
+                pygame.mixer.music.set_volume(level / 100.0)
+                if hasattr(self.board_ui, 'piece_sound') and self.board_ui.piece_sound:
+                    self.board_ui.piece_sound.set_volume(level / 100.0)
             self._set_bgm_volume(level)
         except Exception as e:
             print("设置音量异常:", e)

@@ -34,6 +34,7 @@ class BoardUI:
         pygame.mixer.init()
         self.background_music = None
         self.piece_sound = None
+        self.current_bgm_volume = 0.5  # 当前BGM音量（0.0-1.0）
 
         # 按钮相关
         self.button_color = (100, 100, 100)  # 按钮颜色
@@ -59,11 +60,41 @@ class BoardUI:
             if not os.path.isabs(music_file):
                 music_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), music_file)
             
-            pygame.mixer.music.load(music_file)
-            pygame.mixer.music.play(-1)  # 循环播放
-            print("背景音乐加载成功并开始播放！")
+            if os.path.exists(music_file):
+                pygame.mixer.music.load(music_file)
+                pygame.mixer.music.play(-1)  # 循环播放
+                pygame.mixer.music.set_volume(self.current_bgm_volume)
+                print(f"背景音乐加载成功并开始播放: {music_file}")
+            else:
+                print(f"背景音乐文件不存在: {music_file}")
         except Exception as e:
             print(f"背景音乐加载失败: {e}")
+
+    def set_bgm_file(self, bgm_file):
+        """
+        设置BGM文件但不立即播放（用于设置界面）
+        
+        :param bgm_file: BGM文件名（相对于BGM文件夹）
+        """
+        if bgm_file is None:
+            # 停止音乐
+            pygame.mixer.music.stop()
+            self.background_music = None
+            print("BGM已停止")
+        else:
+            # 构建完整路径
+            bgm_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "BGM", bgm_file)
+            if os.path.exists(bgm_path):
+                try:
+                    pygame.mixer.music.load(bgm_path)
+                    pygame.mixer.music.play(-1)
+                    pygame.mixer.music.set_volume(self.current_bgm_volume)
+                    self.background_music = bgm_path
+                    print(f"BGM已切换到: {bgm_file}")
+                except Exception as e:
+                    print(f"BGM切换失败: {e}")
+            else:
+                print(f"BGM文件不存在: {bgm_path}")
 
     def set_piece_sound(self, sound_file):
         """
@@ -120,9 +151,14 @@ class BoardUI:
             if self.piece_sound:
                 volume = level / 100.0
                 self.piece_sound.set_volume(volume)
-                print(f"音效音量设置为: {level}%")
+            
+            # 设置BGM音量
+            self.current_bgm_volume = level / 100.0
+            pygame.mixer.music.set_volume(self.current_bgm_volume)
+            
+            print(f"音量设置为: {level}%")
         except Exception as e:
-            print(f"设置音效音量失败: {e}")
+            print(f"设置音量失败: {e}")
 
     def set_background(self, background_path):
         """

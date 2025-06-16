@@ -122,7 +122,7 @@ class GomokuGame:
         """初始化游戏音频"""
         try:
             # 设置背景音乐和落子音效（使用相对路径）
-            self.board_ui.set_background_music("assets/board_bgm.mp3")
+            self.board_ui.set_background_music("assets/BGM/board_bgm.mp3")
             self.board_ui.set_piece_sound("assets/piece_sound.mp3")
         except Exception as e:
             print(f"音频初始化失败: {e}")
