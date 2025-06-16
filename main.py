@@ -11,6 +11,7 @@ from logic.comment import GameCommentator # AI评语生成模块
 from ui.menu_ui import GameUI             # 游戏UI管理模块，负责菜单显示
 from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制和交互
 from ui.past_ui import HistoryUI          # 历史记录UI模块
+from ui.setting_ui import SettingUI       # 设置UI模块
 
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
@@ -50,9 +51,55 @@ class GomokuGame:
         # 初始化评语生成器
         self.commentator = GameCommentator()
         
+        # 设置UI实例
+        self.setting_ui = None
+        
+        # 背景设置持久化
+        self.current_background = None  # 当前选中的背景文件路径
+        self._load_settings()  # 加载保存的设置
+        
         # 调用初始化方法
         self._init_game_components()
     
+    def _load_settings(self):
+        """加载保存的游戏设置"""
+        try:
+            settings_file = os.path.join(os.path.dirname(__file__), 'game_database', 'settings.json')
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    self.current_background = settings.get('background_path', None)
+                    print(f"加载背景设置: {self.current_background}")
+        except Exception as e:
+            print(f"加载设置失败: {e}")
+            self.current_background = None
+
+    def _save_settings(self):
+        """保存游戏设置"""
+        try:
+            settings_dir = os.path.join(os.path.dirname(__file__), 'game_database')
+            os.makedirs(settings_dir, exist_ok=True)
+            settings_file = os.path.join(settings_dir, 'settings.json')
+            
+            settings = {
+                'background_path': self.current_background
+            }
+            
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+            print(f"设置已保存: {self.current_background}")
+        except Exception as e:
+            print(f"保存设置失败: {e}")
+
+    def update_background_setting(self, background_path):
+        """更新背景设置并持久化"""
+        self.current_background = background_path
+        self._save_settings()
+        # 如果board_ui已初始化，立即应用背景
+        if self.board_ui:
+            self.board_ui.set_background(background_path)
+            print(f"背景已应用到游戏: {background_path}")
+
     def _init_game_components(self):
         """初始化游戏核心组件 - 创建各个模块的实例"""
         
@@ -108,17 +155,37 @@ class GomokuGame:
             background_color=(240, 217, 181)  # 木制棋盘的暖色调
         )
         
+        # 应用保存的背景设置
+        if self.current_background and os.path.exists(self.current_background):
+            self.board_ui.set_background(self.current_background)
+            print(f"应用保存的背景: {self.current_background}")
+        
         # 初始化音频
         self._init_audio()
-    
+        
+        # 初始化设置UI
+        self._init_setting_ui()
+
     def _init_audio(self):
         """初始化游戏音频"""
         try:
             # 设置背景音乐和落子音效（使用相对路径）
-            self.board_ui.set_background_music("assets/board_bgm.mp3")
+            self.board_ui.set_background_music("assets/BGM/board_bgm.mp3")
             self.board_ui.set_piece_sound("assets/piece_sound.mp3")
         except Exception as e:
             print(f"音频初始化失败: {e}")
+
+    def _init_setting_ui(self):
+        """初始化设置UI"""
+        if self.screen and self.ai and self.board_ui:
+            self.setting_ui = SettingUI(
+                screen=self.screen,
+                move_logic=self.ai,
+                board_ui=self.board_ui,
+                assets_path="assets",
+                background_image="assets/loadbackground.jpg",
+                game_instance=self  # 传递游戏实例引用
+            )
 
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
@@ -458,9 +525,8 @@ class GomokuGame:
                     self.show_history()
                     
                 elif choice == "settings":
-                    # 设置菜单（功能预留，暂未实现）
-                    print("设置功能尚未实现")
-                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
+                    # 显示设置界面
+                    self.show_settings()
                     
                 elif choice == "quit":
                     # 退出游戏
@@ -481,7 +547,14 @@ class GomokuGame:
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
         
-        # BoardUI.draw_board() - 绘制棋盘网格和背景
+        # 完全清除屏幕
+        self.screen.fill((0, 0, 0))  # 用黑色清除屏幕
+        
+        # 先绘制背景
+        # BoardUI.draw_background() - 绘制背景（颜色或图片）
+        self.board_ui.draw_background()
+        
+        # BoardUI.draw_board() - 绘制棋盘网格
         self.board_ui.draw_board()
         
         # BoardUI.draw_pieces() - 根据棋盘状态绘制所有棋子
@@ -571,6 +644,35 @@ class GomokuGame:
                         self.handle_human_move(x, y)
         
         return True  # 继续游戏循环
+
+    def show_settings(self):
+        """显示设置界面"""
+        try:
+            # 确保游戏屏幕已初始化
+            if self.screen is None:
+                self._init_game_screen()
+            
+            # 确保设置UI已初始化
+            if self.setting_ui is None:
+                self._init_setting_ui()
+            
+            # 显示设置界面
+            if self.setting_ui:
+                self.setting_ui.show()
+            else:
+                print("设置UI初始化失败")
+                
+        except Exception as e:
+            print(f"显示设置界面失败: {e}")
+            # 如果失败，创建临时屏幕显示错误信息
+            temp_screen = pygame.display.set_mode((800, 600))
+            temp_screen.fill((255, 255, 255))
+            font = pygame.font.Font(None, 36)
+            error_text = font.render(f"Settings load failed: {str(e)}", True, (255, 0, 0))
+            text_rect = error_text.get_rect(center=(400, 300))
+            temp_screen.blit(error_text, text_rect)
+            pygame.display.flip()
+            pygame.time.wait(2000)  # 显示2秒错误信息
 
 def main():
     """

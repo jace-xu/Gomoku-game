@@ -44,28 +44,47 @@ class GameDetailUI:
     def __init__(self, screen: pygame.Surface, game_data: Dict):
         self.screen = screen
         self.game_data = game_data
-        self.font = pygame.font.Font(None, 24)
-        self.small_font = pygame.font.Font(None, 18)
-        self.title_font = pygame.font.Font(None, 32)
+        
+        # 使用统一的字体初始化方式
+        self._init_fonts()
+        
+        # 保存原始窗口标题，退出时恢复
+        self.original_title = pygame.display.get_caption()[0]
         
         # 创建返回按钮
         self.return_button = Button("Back", 10, 10, 80, 35, (70, 130, 180))
         
-        # 计算布局
+        # 动态计算布局
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
         
-        # 棋盘显示区域（稍微缩小棋盘为评语让出更多空间）
-        self.board_size = 180  # 棋盘显示大小（从200减到180）
-        self.board_x = 30      # 棋盘左边距（从50减到30）
+        # 棋盘显示区域（动态调整）
+        self.board_size = min(180, self.screen_width // 4)  # 动态调整棋盘大小
+        self.board_x = 30
         self.board_y = 60
         
-        # 信息显示区域（向左移动，增加宽度）
-        self.info_x = self.board_x + self.board_size + 20  # 减少间距
+        # 信息显示区域（动态调整）
+        self.info_x = self.board_x + self.board_size + 20
         self.info_y = self.board_y
+
+    def _init_fonts(self):
+        """初始化字体，使用与其他UI组件一致的方式"""
+        try:
+            # 首先尝试加载中文字体
+            self.font = pygame.font.Font("msyh.ttf", 24)
+            self.small_font = pygame.font.Font("msyh.ttf", 18)
+            self.title_font = pygame.font.Font("msyh.ttf", 32)
+        except (OSError, pygame.error):
+            # 如果中文字体加载失败，使用默认字体
+            self.font = pygame.font.Font(None, 24)
+            self.small_font = pygame.font.Font(None, 18)
+            self.title_font = pygame.font.Font(None, 32)
     
     def run(self):
         """运行详细记录查看界面"""
+        # 临时更改窗口标题
+        pygame.display.set_caption("Game Details")
+        
         running = True
         clock = pygame.time.Clock()
         
@@ -81,13 +100,18 @@ class GameDetailUI:
                 if self.return_button.handle_event(event):
                     running = False
             
+            # 完全清除屏幕并重绘
+            self.screen.fill(BG_COLOR)
             self._draw_detail_view()
             pygame.display.flip()
             clock.tick(60)
-    
+        
+        # 恢复原始窗口标题
+        pygame.display.set_caption(self.original_title)
+
     def _draw_detail_view(self):
         """绘制详细记录视图"""
-        self.screen.fill(BG_COLOR)
+        # 不需要再次填充背景，因为在run()中已经清除了
         
         # 绘制标题
         title = self.title_font.render("Game Details", True, FONT_COLOR)
@@ -261,6 +285,9 @@ class HistoryUI:
         self.item_height = 120                              # 每条历史快照高度（增加以容纳三行）
         self.margin = 15                                    # 快照之间的间距
         
+        # 保存原始窗口标题，退出时恢复
+        self.original_title = pygame.display.get_caption()[0]
+        
         # 创建返回按钮
         self.return_button = Button("Back", 10, 10, 100, 40, (70, 130, 180))
 
@@ -298,6 +325,9 @@ class HistoryUI:
 
         :return: None
         """
+        # 临时更改窗口标题
+        pygame.display.set_caption("Game History")
+        
         running = True
         clock = pygame.time.Clock()
         
@@ -306,7 +336,10 @@ class HistoryUI:
         screen_height = self.screen.get_height()
         
         while running:
+            # 完全清除屏幕
             self.screen.fill(BG_COLOR)
+            
+            # 绘制标题
             title = self.font.render("Game History", True, FONT_COLOR)
             self.screen.blit(title, (screen_width // 2 - title.get_width() // 2, 20))
 
@@ -369,6 +402,9 @@ class HistoryUI:
             
             pygame.display.flip()
             clock.tick(60)
+        
+        # 恢复原始窗口标题
+        pygame.display.set_caption(self.original_title)
 
     def _get_clicked_item(self, mouse_pos):
         """获取点击的历史记录项索引"""
