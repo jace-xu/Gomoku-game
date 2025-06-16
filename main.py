@@ -54,9 +54,52 @@ class GomokuGame:
         # 设置UI实例
         self.setting_ui = None
         
+        # 背景设置持久化
+        self.current_background = None  # 当前选中的背景文件路径
+        self._load_settings()  # 加载保存的设置
+        
         # 调用初始化方法
         self._init_game_components()
     
+    def _load_settings(self):
+        """加载保存的游戏设置"""
+        try:
+            settings_file = os.path.join(os.path.dirname(__file__), 'game_database', 'settings.json')
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    self.current_background = settings.get('background_path', None)
+                    print(f"加载背景设置: {self.current_background}")
+        except Exception as e:
+            print(f"加载设置失败: {e}")
+            self.current_background = None
+
+    def _save_settings(self):
+        """保存游戏设置"""
+        try:
+            settings_dir = os.path.join(os.path.dirname(__file__), 'game_database')
+            os.makedirs(settings_dir, exist_ok=True)
+            settings_file = os.path.join(settings_dir, 'settings.json')
+            
+            settings = {
+                'background_path': self.current_background
+            }
+            
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+            print(f"设置已保存: {self.current_background}")
+        except Exception as e:
+            print(f"保存设置失败: {e}")
+
+    def update_background_setting(self, background_path):
+        """更新背景设置并持久化"""
+        self.current_background = background_path
+        self._save_settings()
+        # 如果board_ui已初始化，立即应用背景
+        if self.board_ui:
+            self.board_ui.set_background(background_path)
+            print(f"背景已应用到游戏: {background_path}")
+
     def _init_game_components(self):
         """初始化游戏核心组件 - 创建各个模块的实例"""
         
@@ -112,6 +155,11 @@ class GomokuGame:
             background_color=(240, 217, 181)  # 木制棋盘的暖色调
         )
         
+        # 应用保存的背景设置
+        if self.current_background and os.path.exists(self.current_background):
+            self.board_ui.set_background(self.current_background)
+            print(f"应用保存的背景: {self.current_background}")
+        
         # 初始化音频
         self._init_audio()
         
@@ -135,7 +183,8 @@ class GomokuGame:
                 move_logic=self.ai,
                 board_ui=self.board_ui,
                 assets_path="assets",
-                background_image="assets/loadbackground.jpg"
+                background_image="assets/loadbackground.jpg",
+                game_instance=self  # 传递游戏实例引用
             )
 
     def start_game(self):
@@ -498,7 +547,14 @@ class GomokuGame:
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
         
-        # BoardUI.draw_board() - 绘制棋盘网格和背景
+        # 完全清除屏幕
+        self.screen.fill((0, 0, 0))  # 用黑色清除屏幕
+        
+        # 先绘制背景
+        # BoardUI.draw_background() - 绘制背景（颜色或图片）
+        self.board_ui.draw_background()
+        
+        # BoardUI.draw_board() - 绘制棋盘网格
         self.board_ui.draw_board()
         
         # BoardUI.draw_pieces() - 根据棋盘状态绘制所有棋子

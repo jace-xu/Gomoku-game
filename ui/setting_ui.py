@@ -16,7 +16,7 @@ class SettingUI:
     包括难度、音量、背景、BGM等设置。
     """
 
-    def __init__(self, screen, move_logic, board_ui, assets_path="assets", background_image="assets/loadbackground.jpg"):
+    def __init__(self, screen, move_logic, board_ui, assets_path="assets", background_image="assets/loadbackground.jpg", game_instance=None):
         """
         初始化SettingUI类。
         :param screen: pygame的主窗口Surface对象
@@ -24,12 +24,14 @@ class SettingUI:
         :param board_ui: 棋盘UI对象（如设置背景、音效等）
         :param assets_path: 资源文件夹路径
         :param background_image: 默认背景图片路径
+        :param game_instance: 游戏主实例引用（用于背景持久化）
         """
         self.screen = screen  # 游戏主窗口
         self.move_logic = move_logic  # 移动/AI逻辑对象
         self.board_ui = board_ui  # 棋盘UI对象
         self.assets_path = assets_path  # 资源目录路径
         self.background_image_path = background_image  # 背景图片路径
+        self.game_instance = game_instance  # 游戏主实例引用
 
         # 动态获取当前窗口尺寸，而不是保存原始尺寸
         self.original_title = pygame.display.get_caption()[0]
@@ -47,6 +49,13 @@ class SettingUI:
 
         self.background_list = self._load_backgrounds()  # 背景图片文件名列表
         self.selected_background = self.background_list[0] if self.background_list else None  # 当前选中背景
+        
+        # 从游戏实例获取当前背景设置
+        if self.game_instance and self.game_instance.current_background:
+            current_bg_name = os.path.basename(self.game_instance.current_background)
+            if current_bg_name in self.background_list:
+                self.selected_background = current_bg_name
+        
         self.background_thumbnails = {}  # 背景缩略图字典，key为文件名，value为Surface
         for bg in self.background_list:
             try:
@@ -223,7 +232,8 @@ class SettingUI:
 
     def handle_event(self):
         """
-        事件处理函数，动态适应窗口尺寸。
+        事件处理函数，包括鼠标点击、滚轮、键盘等。
+        根据当前state分发事件逻辑。
         """
         try:
             for event in pygame.event.get():
@@ -247,20 +257,26 @@ class SettingUI:
                         thumb_w, thumb_h = 160, 120
                         gap = 20
                         count = end - start
-                        group_width = count * thumb_w + (count-1)*gap
-                        start_x = (screen_width - group_width) // 2
+                        group_width = count * thumb_w + (count-1)*gap if count > 0 else 0
+                        start_x = (screen_width - group_width) // 2 if count > 0 else 0
                         thumbnail_y = max(180, screen_height // 2 - 100)
 
                         if event.button == 1:
-                            # 分页控制 - 动态计算位置
-                            if start > 0 and start_x-30 <= mx <= start_x and thumbnail_y+40 <= my <= thumbnail_y+80:
-                                self.bg_scroll_index = max(0, start - self.bg_per_page)
-                                return
-                            right_x = start_x + count*thumb_w + (count-1)*gap
-                            if end < total and right_x <= mx <= right_x+30 and thumbnail_y+40 <= my <= thumbnail_y+80:
-                                self.bg_scroll_index = min(total - self.bg_per_page, start + self.bg_per_page)
-                                return
-                            
+                            # 分页控制 - 修正坐标计算
+                            arrow_size = 30
+                            # 上一页箭头
+                            if start > 0:
+                                left_arrow_x = start_x - arrow_size
+                                if left_arrow_x <= mx <= start_x and thumbnail_y + 40 <= my <= thumbnail_y + 80:
+                                    self.bg_scroll_index = max(0, start - self.bg_per_page)
+                                    return
+                            # 下一页箭头
+                            if end < total:
+                                right_x = start_x + group_width
+                                if right_x <= mx <= right_x + arrow_size and thumbnail_y + 40 <= my <= thumbnail_y + 80:
+                                    self.bg_scroll_index = min(total - self.bg_per_page, start + self.bg_per_page)
+                                    return
+                        
                             # 点击缩略图预览
                             for i, idx in enumerate(range(start, end)):
                                 rect = pygame.Rect(start_x + i*(thumb_w+gap), thumbnail_y, thumb_w, thumb_h)
@@ -274,16 +290,24 @@ class SettingUI:
                                     except (OSError, pygame.error):
                                         self.bg_preview = None
                                     return
-                            # 选择背景按钮
+                        
+                            # 选择背景按钮 - 修正索引计算并立即应用
                             for i, btn_rect in enumerate(self.bg_select_buttons):
                                 if btn_rect.collidepoint(mx, my):
-                                    bg = self.background_list[start + i]
-                                    self.selected_background = bg
-                                    self.update_background(bg)
-                                    return
+                                    if i < len(self.background_list[start:end]):  # 确保索引有效
+                                        bg = self.background_list[start + i]
+                                        self.selected_background = bg
+                                        self.update_background(bg)
+                                        
+                                        # 立即刷新显示
+                                        pygame.display.flip()
+                                        print(f"立即应用背景: {bg}")
+                                        return
+                        
                             # 返回按钮
                             if self._in_rect(mx, my, 20, screen_height - 70, 120, 50):
                                 self.state = "main"
+                    
                     # 主菜单事件
                     elif self.state == "main":
                         button_width = min(300, screen_width - 100)
@@ -461,18 +485,25 @@ class SettingUI:
         for i, idx in enumerate(range(start, end)):
             bg = self.background_list[idx]
             rect = pygame.Rect(start_x + i*(thumb_w+gap), thumbnail_y, thumb_w, thumb_h)
+            
+            # 高亮显示选中的背景
             if self.selected_background == bg:
                 pygame.draw.rect(self.screen, BLUE, rect, 6, border_radius=18)
                 highlight = pygame.Surface((thumb_w, thumb_h), pygame.SRCALPHA)
                 highlight.fill((YELLOW[0], YELLOW[1], YELLOW[2], 80))
                 self.screen.blit(highlight, rect.topleft)
+            
             pygame.draw.rect(self.screen, BEIGE, rect, border_radius=12)
             pygame.draw.rect(self.screen, BLACK, rect, 2, border_radius=12)
+            
+            # 显示缩略图
             thumb = self.background_thumbnails.get(bg)
             if thumb:
                 self.screen.blit(thumb, (rect.x, rect.y))
             else:
                 pygame.draw.rect(self.screen, GRAY, rect)
+            
+            # 选择按钮
             btn_x = rect.x + (thumb_w - btn_w)//2
             btn_y = rect.y + thumb_h + 10
             btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
@@ -484,12 +515,26 @@ class SettingUI:
             txt_btn = self.button_font.render(label, True, BLACK)
             self.screen.blit(txt_btn, (btn_x + (btn_w-txt_btn.get_width())//2, btn_y + (btn_h-txt_btn.get_height())//2))
         
-        # 分页箭头
+        # 分页箭头 - 修正位置计算
+        arrow_size = 20
         if start > 0:
-            pygame.draw.polygon(self.screen, BLACK, [(start_x-20,thumbnail_y+60),(start_x,thumbnail_y+40),(start_x,thumbnail_y+80)])
+            # 左箭头
+            left_arrow_points = [
+                (start_x - arrow_size, thumbnail_y + 60),
+                (start_x - 5, thumbnail_y + 40),
+                (start_x - 5, thumbnail_y + 80)
+            ]
+            pygame.draw.polygon(self.screen, BLACK, left_arrow_points)
+        
         if end < total:
-            right_x = start_x + count*thumb_w + (count-1)*gap
-            pygame.draw.polygon(self.screen, BLACK, [(right_x+20,thumbnail_y+60),(right_x,thumbnail_y+40),(right_x,thumbnail_y+80)])
+            # 右箭头
+            right_x = start_x + group_width
+            right_arrow_points = [
+                (right_x + arrow_size, thumbnail_y + 60),
+                (right_x + 5, thumbnail_y + 40),
+                (right_x + 5, thumbnail_y + 80)
+            ]
+            pygame.draw.polygon(self.screen, BLACK, right_arrow_points)
         
         self._draw_button("Back", 20, screen_height - 70, 120, 50, color=GRAY)
         
@@ -558,16 +603,43 @@ class SettingUI:
 
     def update_background(self, bg_name):
         """
-        更新背景图片并同步到board_ui。
+        更新背景图片并同步到board_ui和游戏实例。
         :param bg_name: 背景文件名
         """
         try:
-            if hasattr(self.board_ui, "set_background"):
-                bg_path = os.path.join(self.assets_path, "backgrounds", bg_name)
-                self.board_ui.set_background(bg_path)
+            bg_path = os.path.join(self.assets_path, "backgrounds", bg_name)
+            if os.path.exists(bg_path):
+                # 设置board_ui的背景
+                if hasattr(self.board_ui, "set_background"):
+                    self.board_ui.set_background(bg_path)
+                
+                # 更新游戏实例的背景设置（持久化）
+                if self.game_instance:
+                    self.game_instance.update_background_setting(bg_path)
+                
+                # 立即更新设置UI的背景预览
+                self._update_setting_background(bg_path)
+                
+                print(f"背景已切换到: {bg_name}")
+                print(f"背景路径: {bg_path}")
+            else:
+                print(f"背景文件不存在: {bg_path}")
         except Exception as e:
             print("设置背景异常:", e)
             traceback.print_exc()
+
+    def _update_setting_background(self, bg_path):
+        """
+        更新设置界面的背景预览
+        :param bg_path: 背景图片路径
+        """
+        try:
+            # 更新设置界面自己的背景
+            self.background = pygame.image.load(bg_path).convert()
+            current_size = self.screen.get_size()
+            self.background = pygame.transform.scale(self.background, current_size)
+        except Exception as e:
+            print(f"更新设置界面背景失败: {e}")
 
     def get_settings(self):
         """

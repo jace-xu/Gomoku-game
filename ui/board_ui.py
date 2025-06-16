@@ -33,6 +33,10 @@ class BoardUI:
         self.white_piece_color = (255, 255, 255)
         self.piece_border_color = (0, 0, 0)
 
+        # 背景图片相关 - 新增属性
+        self.background_image = None  # 背景图片Surface对象
+        self.use_background_image = False  # 是否使用背景图片
+
         # 初始化音频
         pygame.mixer.init()
         self.background_music = None
@@ -179,102 +183,36 @@ class BoardUI:
         :param background_path: 背景图片路径
         """
         try:
+            print(f"尝试加载背景: {background_path}")
             # 加载新背景图片
             new_background = pygame.image.load(background_path).convert()
-            # 缩放到适合的尺寸（如果需要的话）
+            # 缩放到适合的尺寸
             screen_size = self.screen.get_size()
-            self.background_color = None  # 使用图片背景时清除颜色背景
             self.background_image = pygame.transform.scale(new_background, screen_size)
-            print(f"背景图片已更新: {background_path}")
+            self.use_background_image = True  # 启用背景图片
+            print(f"背景图片已更新并启用: {background_path}")
+            print(f"背景图片尺寸: {self.background_image.get_size()}")
+            print(f"屏幕尺寸: {screen_size}")
         except Exception as e:
             print(f"设置背景图片失败: {e}")
-            # 如果失败，恢复默认颜色背景
-            self.background_color = (240, 217, 181)
+            # 如果失败，恢复使用颜色背景
+            self.use_background_image = False
             self.background_image = None
-
-    def play_piece_sound(self):
-        """
-        播放落子音效
-        """
-        if self.piece_sound:
-            self.piece_sound.play()
-
-    def stop_background_music(self):
-        """
-        停止背景音乐
-        """
-        pygame.mixer.music.stop()
-
-    def pause_background_music(self):
-        """
-        暂停背景音乐
-        """
-        pygame.mixer.music.pause()
-
-    def unpause_background_music(self):
-        """
-        恢复背景音乐
-        """
-        pygame.mixer.music.unpause()
-
-    def get_required_size(self):
-        """
-        获取棋盘UI所需的最小屏幕尺寸
-        
-        :return: tuple，(width, height)
-        """
-        return (self.total_width, self.total_height)
-
-    def is_position_valid(self, x, y):
-        """
-        检查棋盘坐标是否有效
-        
-        :param x: x坐标（列）
-        :param y: y坐标（行）
-        :return: bool
-        """
-        return 0 <= x < self.board_size and 0 <= y < self.board_size
-
-    def pixel_to_board(self, pixel_x, pixel_y):
-        """
-        将像素坐标转换为棋盘坐标
-        
-        :param pixel_x: 像素x坐标
-        :param pixel_y: 像素y坐标
-        :return: tuple，(board_x, board_y) 或 None（如果超出范围）
-        """
-        x = round((pixel_x - self.margin) / self.grid_size)
-        y = round((pixel_y - self.margin) / self.grid_size)
-        
-        if self.is_position_valid(x, y):
-            return (x, y)
-        return None
-
-    def board_to_pixel(self, board_x, board_y):
-        """
-        将棋盘坐标转换为像素坐标
-        
-        :param board_x: 棋盘x坐标
-        :param board_y: 棋盘y坐标
-        :return: tuple，(pixel_x, pixel_y)
-        """
-        pixel_x = self.margin + board_x * self.grid_size
-        pixel_y = self.margin + board_y * self.grid_size
-        return (pixel_x, pixel_y)
 
     def draw_background(self):
         """绘制背景"""
-        if hasattr(self, 'background_image') and self.background_image:
+        if self.use_background_image and self.background_image:
+            # 使用背景图片
             self.screen.blit(self.background_image, (0, 0))
+            print("绘制背景图片")
         else:
+            # 使用背景颜色
             self.screen.fill(self.background_color)
+            print("绘制背景颜色")
 
     def draw_board(self):
         """绘制棋盘网格。"""
-        # 先完全清除屏幕，然后绘制背景
-        self.draw_background()
-        
-        # 绘制网格线
+        # 绘制网格线，不要清除背景
         for i in range(self.board_size):
             # 水平线
             start_x = self.margin
