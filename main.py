@@ -56,6 +56,7 @@ class GomokuGame:
         
         # 背景设置持久化
         self.current_background = None  # 当前选中的背景文件路径
+        self.current_difficulty = 'Normal'  # 默认难度
         self._load_settings()  # 加载保存的设置
         
         # 调用初始化方法
@@ -69,10 +70,12 @@ class GomokuGame:
                 with open(settings_file, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
                     self.current_background = settings.get('background_path', None)
-                    print(f"加载背景设置: {self.current_background}")
+                    self.current_difficulty = settings.get('difficulty', 'Normal')
+                    print(f"加载设置 - 背景: {self.current_background}, 难度: {self.current_difficulty}")
         except Exception as e:
             print(f"加载设置失败: {e}")
             self.current_background = None
+            self.current_difficulty = 'Normal'
 
     def _save_settings(self):
         """保存游戏设置"""
@@ -82,14 +85,21 @@ class GomokuGame:
             settings_file = os.path.join(settings_dir, 'settings.json')
             
             settings = {
-                'background_path': self.current_background
+                'background_path': self.current_background,
+                'difficulty': getattr(self, 'current_difficulty', 'Normal')
             }
             
             with open(settings_file, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
-            print(f"设置已保存: {self.current_background}")
+            print(f"设置已保存 - 背景: {self.current_background}, 难度: {getattr(self, 'current_difficulty', 'Normal')}")
         except Exception as e:
             print(f"保存设置失败: {e}")
+
+    def update_difficulty_setting(self, difficulty):
+        """更新难度设置并持久化"""
+        self.current_difficulty = difficulty
+        self._save_settings()
+        print(f"难度设置已更新并保存: {difficulty}")
 
     def update_background_setting(self, background_path):
         """更新背景设置并持久化"""
@@ -98,7 +108,10 @@ class GomokuGame:
         # 如果board_ui已初始化，立即应用背景
         if self.board_ui:
             self.board_ui.set_background(background_path)
-            print(f"背景已应用到游戏: {background_path}")
+            if background_path:
+                print(f"背景已应用到游戏: {background_path}")
+            else:
+                print("背景已切换到默认米白色")
 
     def _init_game_components(self):
         """初始化游戏核心组件 - 创建各个模块的实例"""
@@ -124,7 +137,14 @@ class GomokuGame:
             ai_player=self.ai_player,
             human_player=self.human_player
         )
-    
+        
+        # 应用保存的难度设置
+        if hasattr(self, 'current_difficulty'):
+            difficulty_map = {"Easy": 1, "Normal": 2, "Hard": 3}
+            if self.current_difficulty in difficulty_map:
+                self.ai.set_difficulty_level(difficulty_map[self.current_difficulty])
+                print(f"应用保存的难度设置: {self.current_difficulty}")
+
     def _init_game_screen(self):
         """初始化游戏屏幕和棋盘UI - 根据棋盘大小计算合适的显示尺寸"""
         
@@ -159,6 +179,10 @@ class GomokuGame:
         if self.current_background and os.path.exists(self.current_background):
             self.board_ui.set_background(self.current_background)
             print(f"应用保存的背景: {self.current_background}")
+        else:
+            # 如果没有保存的背景或背景文件不存在，使用默认背景
+            self.board_ui.set_background(None)
+            print("使用默认米白色背景")
         
         # 初始化音频
         self._init_audio()
@@ -364,11 +388,15 @@ class GomokuGame:
             result = self._get_latest_result()
         
         if result is not None:
+            # 准备用于评语生成的数据，确保类型转换
+            board_state_for_comment = [[int(cell) for cell in row] for row in self.board_state.board]
+            move_history_for_comment = [[int(move[0]), int(move[1]), int(move[2])] for move in self.board_state.move_history]
+            
             # 显示结果窗口，包含异步评语生成和打字机效果
             result_confirmed, generated_comment = self.game_ui.show_result_menu_with_async_comment(
                 result=result, 
-                board_state=[row[:] for row in self.board_state.board],
-                move_history=[list(move) for move in self.board_state.move_history],
+                board_state=board_state_for_comment,
+                move_history=move_history_for_comment,
                 commentator=self.commentator
             )
             
@@ -392,13 +420,17 @@ class GomokuGame:
         
         def save_history():
             try:
-                self.board_state.save_to_history(custom_comment=comment, game_result=result)
+                # 转换数据类型以确保JSON序列化兼容
+                safe_result = int(result) if result is not None else 0
+                safe_comment = str(comment) if comment else "这是一场精彩的对弈！"
+                
+                self.board_state.save_to_history(custom_comment=safe_comment, game_result=safe_result)
                 print("完整游戏记录已保存")
             except Exception as e:
                 print(f"保存完整记录失败: {e}")
                 # 保存基本记录
                 try:
-                    self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=result)
+                    self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=int(result) if result is not None else 0)
                     print("基本游戏记录已保存")
                 except Exception as e2:
                     print(f"保存基本记录也失败: {e2}")
