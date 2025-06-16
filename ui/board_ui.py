@@ -6,12 +6,15 @@ class BoardUI:
         """
         初始化棋盘UI。
         
-        :param screen: pygame 的主窗口
+        :param screen: pygame 的主窗口 (必须传入，不创建新窗口)
         :param board_size: 棋盘大小(格子数,默认15)
         :param grid_size: 每格像素大小,默认40
         :param margin: 边距，如果为None则等于grid_size
         :param background_color: 背景颜色
         """
+        if screen is None:
+            raise ValueError("screen参数不能为None，必须传入已存在的pygame display surface")
+        
         self.screen = screen
         self.board_size = board_size
         self.grid_size = grid_size
@@ -39,7 +42,7 @@ class BoardUI:
         # 按钮相关
         self.button_color = (100, 100, 100)  # 按钮颜色
         self.button_text_color = (255, 255, 255)  # 按钮文字颜色
-        self.button_font = pygame.font.Font(None, 24)  # 按钮字体
+        self._init_button_font()  # 使用统一的字体初始化
         self.button_width = 100  # 按钮宽度
         self.button_height = 40  # 按钮高度
         self.button_margin = 10  # 按钮间距
@@ -47,6 +50,37 @@ class BoardUI:
         # 按钮位置
         self.undo_button_rect = None
         self.settings_button_rect = None
+
+        # 自动加载默认音频
+        self._load_default_audio()
+
+    def _init_button_font(self):
+        """初始化按钮字体，使用统一的字体加载方式"""
+        try:
+            # 首先尝试加载中文字体
+            self.button_font = pygame.font.Font("msyh.ttf", 24)
+        except (OSError, pygame.error):
+            # 如果中文字体加载失败，使用默认字体
+            self.button_font = pygame.font.Font(None, 24)
+
+    def _load_default_audio(self):
+        """加载默认音频文件"""
+        try:
+            # 加载默认BGM
+            default_bgm_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "BGM", "board_bgm.mp3")
+            if os.path.exists(default_bgm_path):
+                self.set_background_music("assets/BGM/board_bgm.mp3")
+            else:
+                print(f"默认BGM文件不存在: {default_bgm_path}")
+            
+            # 加载默认落子音效
+            default_sound_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "piece_sound.mp3")
+            if os.path.exists(default_sound_path):
+                self.set_piece_sound("assets/piece_sound.mp3")
+            else:
+                print(f"默认音效文件不存在: {default_sound_path}")
+        except Exception as e:
+            print(f"加载默认音频失败: {e}")
 
     def set_background_music(self, music_file):
         """
@@ -69,6 +103,28 @@ class BoardUI:
                 print(f"背景音乐文件不存在: {music_file}")
         except Exception as e:
             print(f"背景音乐加载失败: {e}")
+
+    def set_piece_sound(self, sound_file):
+        """
+        设置落子音效。
+
+        :param sound_file: 落子音效文件路径
+        """
+        try:
+            # 获取相对路径
+            if not os.path.isabs(sound_file):
+                sound_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), sound_file)
+            
+            if os.path.exists(sound_file):
+                self.piece_sound = pygame.mixer.Sound(sound_file)
+                if self.piece_sound is None:
+                    print("音效加载失败，请检查文件路径和格式！")
+                else:
+                    print("落子音效加载成功！")
+            else:
+                print(f"音效文件不存在: {sound_file}")
+        except Exception as e:
+            print(f"加载音效失败: {e}")
 
     def set_bgm_file(self, bgm_file):
         """
@@ -95,50 +151,6 @@ class BoardUI:
                     print(f"BGM切换失败: {e}")
             else:
                 print(f"BGM文件不存在: {bgm_path}")
-
-    def set_piece_sound(self, sound_file):
-        """
-        设置落子音效。
-
-        :param sound_file: 落子音效文件路径
-        """
-        try:
-            # 获取相对路径
-            if not os.path.isabs(sound_file):
-                sound_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), sound_file)
-            
-            self.piece_sound = pygame.mixer.Sound(sound_file)
-            if self.piece_sound is None:
-                print("音效加载失败，请检查文件路径和格式！")
-            else:
-                print("落子音效加载成功！")
-        except Exception as e:
-            print(f"加载音效失败: {e}")
-
-    def play_piece_sound(self):
-        """
-        播放落子音效
-        """
-        if self.piece_sound:
-            self.piece_sound.play()
-
-    def stop_background_music(self):
-        """
-        停止背景音乐
-        """
-        pygame.mixer.music.stop()
-
-    def pause_background_music(self):
-        """
-        暂停背景音乐
-        """
-        pygame.mixer.music.pause()
-
-    def unpause_background_music(self):
-        """
-        恢复背景音乐
-        """
-        pygame.mixer.music.unpause()
 
     def set_sound_level(self, level):
         """
@@ -179,6 +191,31 @@ class BoardUI:
             # 如果失败，恢复默认颜色背景
             self.background_color = (240, 217, 181)
             self.background_image = None
+
+    def play_piece_sound(self):
+        """
+        播放落子音效
+        """
+        if self.piece_sound:
+            self.piece_sound.play()
+
+    def stop_background_music(self):
+        """
+        停止背景音乐
+        """
+        pygame.mixer.music.stop()
+
+    def pause_background_music(self):
+        """
+        暂停背景音乐
+        """
+        pygame.mixer.music.pause()
+
+    def unpause_background_music(self):
+        """
+        恢复背景音乐
+        """
+        pygame.mixer.music.unpause()
 
     def get_required_size(self):
         """
@@ -234,7 +271,7 @@ class BoardUI:
 
     def draw_board(self):
         """绘制棋盘网格。"""
-        # 绘制背景
+        # 先完全清除屏幕，然后绘制背景
         self.draw_background()
         
         # 绘制网格线
@@ -388,3 +425,7 @@ class BoardUI:
         elif self.settings_button_rect and self.settings_button_rect.collidepoint(mouse_pos):
             return "settings"
         return None
+
+    def clear_screen(self):
+        """完全清除屏幕内容"""
+        self.screen.fill(self.background_color)

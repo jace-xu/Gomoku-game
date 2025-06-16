@@ -31,14 +31,11 @@ class SettingUI:
         self.assets_path = assets_path  # 资源目录路径
         self.background_image_path = background_image  # 背景图片路径
 
-        try:
-            self.font = pygame.font.Font("msyh.ttf", 36)  # 普通字体
-            self.title_font = pygame.font.Font("msyh.ttf", 48)  # 标题字体
-            self.button_font = pygame.font.Font("msyh.ttf", 28)  # 按钮字体
-        except (OSError, pygame.error):
-            self.font = pygame.font.Font(None, 36)
-            self.title_font = pygame.font.Font(None, 48)
-            self.button_font = pygame.font.Font(None, 28)
+        # 动态获取当前窗口尺寸，而不是保存原始尺寸
+        self.original_title = pygame.display.get_caption()[0]
+        
+        # 使用统一的字体初始化方式
+        self._init_fonts()
 
         self.background = None  # 背景图片Surface对象
         self._load_background_image()  # 加载背景图片
@@ -86,14 +83,29 @@ class SettingUI:
         self.state = "main"  # 当前界面状态
         self.running = False  # 控制定时循环标志
 
+    def _init_fonts(self):
+        """初始化字体，使用与其他UI组件一致的方式"""
+        try:
+            # 首先尝试加载中文字体
+            self.font = pygame.font.Font("msyh.ttf", 36)
+            self.title_font = pygame.font.Font("msyh.ttf", 48)
+            self.button_font = pygame.font.Font("msyh.ttf", 28)
+        except (OSError, pygame.error):
+            # 如果中文字体加载失败，使用默认字体
+            self.font = pygame.font.Font(None, 36)
+            self.title_font = pygame.font.Font(None, 48)
+            self.button_font = pygame.font.Font(None, 28)
+
     def _load_background_image(self):
         """
         加载主背景图片到self.background。
-        如果加载失败，则置为None并输出错误信息。
+        动态适应当前屏幕尺寸。
         """
         try:
             self.background = pygame.image.load(self.background_image_path).convert()
-            self.background = pygame.transform.scale(self.background, self.screen.get_size())
+            # 动态获取当前屏幕尺寸并适应
+            current_size = self.screen.get_size()
+            self.background = pygame.transform.scale(self.background, current_size)
         except (OSError, pygame.error) as e:
             print(f"加载背景图片失败: {e}")
             self.background = None
@@ -158,15 +170,37 @@ class SettingUI:
         显示设置窗口主循环。
         根据当前state绘制界面并处理事件。
         """
+        # 临时更改窗口标题
+        pygame.display.set_caption("Settings")
+        
+        # 确保背景图片适应当前窗口尺寸
+        self._load_background_image()
+        
         self.running = True
         clock = pygame.time.Clock()
+        
         while self.running:
             try:
+                # 动态获取当前屏幕尺寸用于布局计算
+                screen_width = self.screen.get_width()
+                screen_height = self.screen.get_height()
+                
+                # 完全清除屏幕内容
+                self.screen.fill(WHITE)
+                
+                # 绘制背景
                 if self.background:
+                    # 确保背景图片尺寸正确
+                    if self.background.get_size() != self.screen.get_size():
+                        self._load_background_image()
                     self.screen.blit(self.background, (0, 0))
                 else:
                     self.screen.fill(WHITE)
+                
+                # 处理事件
                 self.handle_event()
+                
+                # 根据状态绘制对应界面
                 if self.state == "main":
                     self.draw_main()
                 elif self.state == "difficulty":
@@ -175,16 +209,21 @@ class SettingUI:
                     self.draw_sound()
                 elif self.state == "background":
                     self.draw_background()
+                
+                # 更新显示
                 pygame.display.flip()
                 clock.tick(60)
+                
             except Exception as e:
                 print("[UI] 主循环异常:", e)
                 traceback.print_exc()
+        
+        # 恢复原始窗口标题
+        pygame.display.set_caption(self.original_title)
 
     def handle_event(self):
         """
-        事件处理函数，包括鼠标点击、滚轮、键盘等。
-        根据当前state分发事件逻辑。
+        事件处理函数，动态适应窗口尺寸。
         """
         try:
             for event in pygame.event.get():
@@ -192,12 +231,16 @@ class SettingUI:
                     self.running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mx, my = pygame.mouse.get_pos()
+                    screen_width = self.screen.get_width()
+                    screen_height = self.screen.get_height()
+                    
                     # 背景界面事件
                     if self.state == "background":
                         if self.bg_preview:
                             self.bg_preview = None
                             self.bg_preview_name = None
                             return
+                        
                         total = len(self.background_list)
                         start = self.bg_scroll_index
                         end = min(start + self.bg_per_page, total)
@@ -205,20 +248,22 @@ class SettingUI:
                         gap = 20
                         count = end - start
                         group_width = count * thumb_w + (count-1)*gap
-                        start_x = (self.screen.get_width() - group_width) // 2
+                        start_x = (screen_width - group_width) // 2
+                        thumbnail_y = max(180, screen_height // 2 - 100)
 
                         if event.button == 1:
-                            # 上一页
-                            if start > 0 and 120 <= mx <= 140 and 220 <= my <= 260:
+                            # 分页控制 - 动态计算位置
+                            if start > 0 and start_x-30 <= mx <= start_x and thumbnail_y+40 <= my <= thumbnail_y+80:
                                 self.bg_scroll_index = max(0, start - self.bg_per_page)
                                 return
-                            # 下一页
-                            if end < total and 840 <= mx <= 860 and 220 <= my <= 260:
+                            right_x = start_x + count*thumb_w + (count-1)*gap
+                            if end < total and right_x <= mx <= right_x+30 and thumbnail_y+40 <= my <= thumbnail_y+80:
                                 self.bg_scroll_index = min(total - self.bg_per_page, start + self.bg_per_page)
                                 return
+                            
                             # 点击缩略图预览
                             for i, idx in enumerate(range(start, end)):
-                                rect = pygame.Rect(start_x + i*(thumb_w+gap), 180, thumb_w, thumb_h)
+                                rect = pygame.Rect(start_x + i*(thumb_w+gap), thumbnail_y, thumb_w, thumb_h)
                                 if rect.collidepoint(mx, my):
                                     bg = self.background_list[idx]
                                     bg_path = os.path.join(self.assets_path, "backgrounds", bg)
@@ -237,52 +282,63 @@ class SettingUI:
                                     self.update_background(bg)
                                     return
                             # 返回按钮
-                            if self._in_rect(mx, my, 20, 520, 120, 50):
+                            if self._in_rect(mx, my, 20, screen_height - 70, 120, 50):
                                 self.state = "main"
                     # 主菜单事件
                     elif self.state == "main":
-                        center_x = (self.screen.get_width() - 300) // 2
-                        if self._in_rect(mx, my, center_x, 200, 300, 60):
+                        button_width = min(300, screen_width - 100)
+                        center_x = (screen_width - button_width) // 2
+                        start_y = max(200, screen_height // 2 - 120)
+                        
+                        if self._in_rect(mx, my, center_x, start_y, button_width, 60):
                             self.state = "difficulty"
-                        elif self._in_rect(mx, my, center_x, 300, 300, 60):
+                        elif self._in_rect(mx, my, center_x, start_y + 80, button_width, 60):
                             self.state = "sound"
-                        elif self._in_rect(mx, my, center_x, 400, 300, 60):
+                        elif self._in_rect(mx, my, center_x, start_y + 160, button_width, 60):
                             self.state = "background"
-                        elif self._in_rect(mx, my, 20, 520, 120, 50):
+                        elif self._in_rect(mx, my, 20, screen_height - 70, 120, 50):
                             self.running = False
                     # 难度设置事件
                     elif self.state == "difficulty":
-                        center_x = (self.screen.get_width() - 260) // 2
+                        button_width = min(260, screen_width - 100)
+                        center_x = (screen_width - button_width) // 2
+                        start_y = max(200, screen_height // 2 - 120)
+                        
                         for i, level in enumerate(self.difficulty_levels):
-                            if self._in_rect(mx, my, center_x, 200 + i*80, 260, 60):
+                            if self._in_rect(mx, my, center_x, start_y + i*80, button_width, 60):
                                 self.selected_difficulty = level
                                 self.update_difficulty(level)
-                        if self._in_rect(mx, my, 20, 520, 120, 50):
+                        if self._in_rect(mx, my, 20, screen_height - 70, 120, 50):
                             self.state = "main"
                     # 音量BGM设置事件
                     elif self.state == "sound":
-                        bar_width = 400
-                        bar_x = (self.screen.get_width() - bar_width) // 2
+                        bar_width = min(400, screen_width - 100)
+                        bar_x = (screen_width - bar_width) // 2
+                        volume_y = max(250, screen_height // 2 - 100)
+                        
                         # 音量条
-                        if bar_x <= mx <= bar_x + bar_width and 250 <= my <= 290:
+                        if bar_x <= mx <= bar_x + bar_width and volume_y <= my <= volume_y + 40:
                             self.sound_level = int((mx - bar_x) / bar_width * 100)
                             self.update_sound(self.sound_level)
+                        
                         # BGM选择
                         if self.bgm_list_display:
-                            start_y = 380
+                            start_y = volume_y + 120
                             for i, bgm in enumerate(self.bgm_list_display):
-                                btn_x = (self.screen.get_width()-180)//2
+                                btn_x = (screen_width-180)//2
                                 btn_y = start_y + i*50
-                                if self._in_rect(mx, my, btn_x, btn_y, 180, 40):
-                                    if self.selected_bgm != bgm:
-                                        self.selected_bgm = bgm
-                                        self._play_bgm(bgm)
-                                        # 确保音量设置正确
-                                        self._set_bgm_volume(self.sound_level)
-                                    break
+                                if btn_y + 40 < screen_height - 80:  # 确保按钮在屏幕内
+                                    if self._in_rect(mx, my, btn_x, btn_y, 180, 40):
+                                        if self.selected_bgm != bgm:
+                                            self.selected_bgm = bgm
+                                            self._play_bgm(bgm)
+                                            self._set_bgm_volume(self.sound_level)
+                                        break
+                        
                         # 返回按钮
-                        if self._in_rect(mx, my, 20, 520, 120, 50):
+                        if self._in_rect(mx, my, 20, screen_height - 70, 120, 50):
                             self.state = "main"
+                
                 # 鼠标滚轮翻页
                 elif event.type == pygame.MOUSEWHEEL and self.state == "background" and not self.bg_preview:
                     total = len(self.background_list)
@@ -301,63 +357,95 @@ class SettingUI:
 
     def draw_main(self):
         """
-        绘制主设置菜单，包括“难度”、“音量”、“背景”、“返回”四个按钮。
+        绘制主设置菜单，包括"难度"、"音量"、"背景"、"返回"四个按钮。
+        动态计算按钮位置以适应不同窗口尺寸。
         """
         self._draw_title("Settings")
-        center_x = (self.screen.get_width() - 300) // 2
-        self._draw_button("Difficulty", center_x, 200, 300, 60)
-        self._draw_button("Sound", center_x, 300, 300, 60)
-        self._draw_button("Background", center_x, 400, 300, 60)
-        self._draw_button("Back", 20, 520, 120, 50, color=GRAY)
+        
+        # 动态计算按钮位置
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        button_width = min(300, screen_width - 100)  # 确保按钮不会太宽
+        center_x = (screen_width - button_width) // 2
+        start_y = max(200, screen_height // 2 - 120)  # 确保按钮不会太靠上
+        
+        self._draw_button("Difficulty", center_x, start_y, button_width, 60)
+        self._draw_button("Sound", center_x, start_y + 80, button_width, 60)
+        self._draw_button("Background", center_x, start_y + 160, button_width, 60)
+        self._draw_button("Back", 20, screen_height - 70, 120, 50, color=GRAY)
 
     def draw_difficulty(self):
         """
-        绘制难度设置界面，包括难度选项按钮和返回按钮。
+        绘制难度设置界面，动态适应窗口尺寸。
         """
         self._draw_title("Difficulty")
-        center_x = (self.screen.get_width() - 260) // 2
+        
+        # 动态计算布局
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        button_width = min(260, screen_width - 100)
+        center_x = (screen_width - button_width) // 2
+        start_y = max(200, screen_height // 2 - 120)
+        
         for i, level in enumerate(self.difficulty_levels):
-            color = (245, 245, 220) if self.selected_difficulty == level else GRAY
-            self._draw_button(level, center_x, 200 + i*80, 260, 60, color=color)
-        self._draw_button("Back", 20, 520, 120, 50, color=GRAY)
+            color = BEIGE if self.selected_difficulty == level else GRAY
+            self._draw_button(level, center_x, start_y + i*80, button_width, 60, color=color)
+        
+        self._draw_button("Back", 20, screen_height - 70, 120, 50, color=GRAY)
 
     def draw_sound(self):
         """
-        绘制音量与BGM设置界面，包括音量条、BGM列表与返回按钮。
+        绘制音量与BGM设置界面，动态适应窗口尺寸。
         """
         self._draw_title("Sound")
+        
+        # 动态计算布局
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        
         # 音量条
-        bar_width = 400
-        bar_x = (self.screen.get_width() - bar_width) // 2
-        pygame.draw.rect(self.screen, GRAY, (bar_x, 250, bar_width, 40), border_radius=10)
-        pygame.draw.rect(self.screen, (80, 180, 80), (bar_x, 250, int(self.sound_level*bar_width/100), 40), border_radius=10)
+        bar_width = min(400, screen_width - 100)
+        bar_x = (screen_width - bar_width) // 2
+        volume_y = max(250, screen_height // 2 - 100)
+        
+        pygame.draw.rect(self.screen, GRAY, (bar_x, volume_y, bar_width, 40), border_radius=10)
+        pygame.draw.rect(self.screen, (80, 180, 80), (bar_x, volume_y, int(self.sound_level*bar_width/100), 40), border_radius=10)
         handle_x = bar_x + int(self.sound_level*bar_width/100)
-        pygame.draw.circle(self.screen, BEIGE, (handle_x, 270), 22)
-        pygame.draw.circle(self.screen, BLACK, (handle_x, 270), 22, 2)
+        pygame.draw.circle(self.screen, BEIGE, (handle_x, volume_y + 20), 22)
+        pygame.draw.circle(self.screen, BLACK, (handle_x, volume_y + 20), 22, 2)
         txt = self.font.render(f"Volume: {self.sound_level}", True, BLACK)
-        self.screen.blit(txt, ((self.screen.get_width()-txt.get_width())//2, 200))
+        self.screen.blit(txt, ((screen_width-txt.get_width())//2, volume_y - 50))
 
         # BGM列表
         if self.bgm_list_display:
-            start_y = 380
+            start_y = volume_y + 80
             title_txt = self.font.render("BGM:", True, BLACK)
-            self.screen.blit(title_txt, ((self.screen.get_width()-title_txt.get_width())//2, start_y-40))
+            self.screen.blit(title_txt, ((screen_width-title_txt.get_width())//2, start_y))
+            start_y += 40
+            
             for i, bgm in enumerate(self.bgm_list_display):
                 label = "No BGM" if bgm is None else bgm[:-4]
                 color = BEIGE if self.selected_bgm == bgm else GRAY
-                btn_x = (self.screen.get_width()-180)//2
+                btn_x = (screen_width-180)//2
                 btn_y = start_y + i*50
-                self._draw_button(label, btn_x, btn_y, 180, 40, color=color)
+                if btn_y + 40 < screen_height - 80:  # 确保按钮不会超出屏幕
+                    self._draw_button(label, btn_x, btn_y, 180, 40, color=color)
         else:
             empty_txt = self.font.render("No BGM found.", True, BLACK)
-            self.screen.blit(empty_txt, ((self.screen.get_width()-empty_txt.get_width())//2, 400))
-        self._draw_button("Back", 20, 520, 120, 50, color=GRAY)
+            self.screen.blit(empty_txt, ((screen_width-empty_txt.get_width())//2, volume_y + 100))
+        
+        self._draw_button("Back", 20, screen_height - 70, 120, 50, color=GRAY)
 
     def draw_background(self):
         """
-        绘制背景选择界面，包括背景缩略图列表、选择按钮、分页箭头、返回按钮及大图预览。
+        绘制背景选择界面，动态适应窗口尺寸。
         """
         self._draw_title("Background")
+        
+        # 动态计算布局
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
+        
         total = len(self.background_list)
         start = self.bg_scroll_index
         end = min(start + self.bg_per_page, total)
@@ -366,11 +454,13 @@ class SettingUI:
         btn_w, btn_h = 100, 36
         count = end - start
         group_width = count * thumb_w + (count-1)*gap if count>0 else 0
-        start_x = (self.screen.get_width() - group_width) // 2 if count>0 else 0
+        start_x = (screen_width - group_width) // 2 if count>0 else 0
+        thumbnail_y = max(180, screen_height // 2 - 100)
+        
         self.bg_select_buttons = []
         for i, idx in enumerate(range(start, end)):
             bg = self.background_list[idx]
-            rect = pygame.Rect(start_x + i*(thumb_w+gap), 180, thumb_w, thumb_h)
+            rect = pygame.Rect(start_x + i*(thumb_w+gap), thumbnail_y, thumb_w, thumb_h)
             if self.selected_background == bg:
                 pygame.draw.rect(self.screen, BLUE, rect, 6, border_radius=18)
                 highlight = pygame.Surface((thumb_w, thumb_h), pygame.SRCALPHA)
@@ -387,19 +477,22 @@ class SettingUI:
             btn_y = rect.y + thumb_h + 10
             btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
             self.bg_select_buttons.append(btn_rect)
-            btn_color = (245, 245, 220) if self.selected_background == bg else GRAY
+            btn_color = BEIGE if self.selected_background == bg else GRAY
             pygame.draw.rect(self.screen, btn_color, btn_rect, border_radius=8)
             pygame.draw.rect(self.screen, BLACK, btn_rect, 2, border_radius=8)
             label = "chosen" if self.selected_background == bg else "choose"
             txt_btn = self.button_font.render(label, True, BLACK)
             self.screen.blit(txt_btn, (btn_x + (btn_w-txt_btn.get_width())//2, btn_y + (btn_h-txt_btn.get_height())//2))
+        
         # 分页箭头
         if start > 0:
-            pygame.draw.polygon(self.screen, BLACK, [(start_x-20,240),(start_x,220),(start_x,260)])
+            pygame.draw.polygon(self.screen, BLACK, [(start_x-20,thumbnail_y+60),(start_x,thumbnail_y+40),(start_x,thumbnail_y+80)])
         if end < total:
             right_x = start_x + count*thumb_w + (count-1)*gap
-            pygame.draw.polygon(self.screen, BLACK, [(right_x+20,240),(right_x,220),(right_x,260)])
-        self._draw_button("Back", 20, 520, 120, 50, color=GRAY)
+            pygame.draw.polygon(self.screen, BLACK, [(right_x+20,thumbnail_y+60),(right_x,thumbnail_y+40),(right_x,thumbnail_y+80)])
+        
+        self._draw_button("Back", 20, screen_height - 70, 120, 50, color=GRAY)
+        
         # 预览大图
         if self.bg_preview:
             overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
@@ -407,10 +500,10 @@ class SettingUI:
             self.screen.blit(overlay, (0,0))
             img = self.bg_preview
             w, h = img.get_width(), img.get_height()
-            maxw, maxh = 600, 400
+            maxw, maxh = min(600, screen_width-100), min(400, screen_height-100)
             scale = min(maxw/w, maxh/h, 1.0)
             img2 = pygame.transform.smoothscale(img, (int(w*scale), int(h*scale)))
-            rect = img2.get_rect(center=(self.screen.get_width()//2, self.screen.get_height()//2))
+            rect = img2.get_rect(center=(screen_width//2, screen_height//2))
             self.screen.blit(img2, rect.topleft)
             self.bg_preview_rect = rect
             name_txt = self.font.render(self.bg_preview_name, True, WHITE)
@@ -516,11 +609,11 @@ class SettingUI:
 
     def _draw_title(self, text):
         """
-        居中绘制标题文本。
-        :param text: 标题内容
+        居中绘制标题文本，动态适应窗口尺寸。
         """
+        screen_width = self.screen.get_width()
         txt = self.title_font.render(text, True, BLACK)
-        self.screen.blit(txt, (self.screen.get_width()//2 - txt.get_width()//2, 90))
+        self.screen.blit(txt, (screen_width//2 - txt.get_width()//2, 90))
 
     def _draw_button(self, text, x, y, w, h, color=BEIGE):
         """
