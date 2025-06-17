@@ -138,5 +138,12 @@
     "human_player": 1,
     "ai_player": 2,
     "move_count": 13
+  },
+  {
+    "result": 0,
+    "timestamp": "2025-06-17 12:28:12",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 14
   }
 ]
