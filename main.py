@@ -97,7 +97,21 @@ class GomokuGame:
 
     def update_difficulty_setting(self, difficulty):
         """更新难度设置并持久化"""
+        print(f"游戏实例更新难度设置: {difficulty}")
         self.current_difficulty = difficulty
+        
+        # 立即应用到AI
+        if self.ai:
+            difficulty_map = {"Easy": 1, "Normal": 2, "Hard": 3}
+            if difficulty in difficulty_map:
+                difficulty_level = difficulty_map[difficulty]
+                success = self.ai.set_difficulty_level(difficulty_level)
+                if success:
+                    print(f"AI难度立即更新成功: {difficulty} (级别: {difficulty_level})")
+                else:
+                    print(f"AI难度立即更新失败: {difficulty}")
+        
+        # 保存到文件
         self._save_settings()
         print(f"难度设置已更新并保存: {difficulty}")
 
@@ -138,8 +152,12 @@ class GomokuGame:
         if hasattr(self, 'current_difficulty'):
             difficulty_map = {"Easy": 1, "Normal": 2, "Hard": 3}
             if self.current_difficulty in difficulty_map:
-                self.ai.set_difficulty_level(difficulty_map[self.current_difficulty])
-                print(f"应用保存的难度设置: {self.current_difficulty}")
+                difficulty_level = difficulty_map[self.current_difficulty]
+                success = self.ai.set_difficulty_level(difficulty_level)
+                if success:
+                    print(f"应用保存的难度设置成功: {self.current_difficulty} (级别: {difficulty_level})")
+                else:
+                    print(f"应用保存的难度设置失败: {self.current_difficulty}")
 
     def _init_game_screen(self):
         """初始化游戏屏幕和棋盘UI - 根据棋盘大小计算合适的显示尺寸"""

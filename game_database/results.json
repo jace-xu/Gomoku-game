@@ -110,5 +110,33 @@
     "human_player": 1,
     "ai_player": 2,
     "move_count": 15
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 12:17:18",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 17
+  },
+  {
+    "result": 0,
+    "timestamp": "2025-06-17 12:17:55",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 20
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 12:22:54",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 12:23:52",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 13
   }
 ]
