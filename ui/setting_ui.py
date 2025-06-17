@@ -44,7 +44,11 @@ class SettingUI:
 
         self.difficulty_levels = ["Easy", "Normal", "Hard"]  # 难度选项
         self.difficulty_map = {"Easy": 1, "Normal": 2, "Hard": 3}  # 难度等级映射
-        self.selected_difficulty = "Normal"  # 当前选择的难度
+        
+        # 从AI对象获取当前难度设置
+        self.selected_difficulty = self._get_current_difficulty()
+        print(f"设置界面初始化 - 当前难度: {self.selected_difficulty}")
+        
         self.sound_level = 50  # 音量等级，范围0-100
 
         self.background_list = self._load_backgrounds()  # 背景图片文件名列表
@@ -174,6 +178,29 @@ class SettingUI:
             print("设置BGM音量异常:", e)
             traceback.print_exc()
 
+    def _get_current_difficulty(self):
+        """从AI对象获取当前难度设置"""
+        try:
+            if hasattr(self.move_logic, 'get_difficulty_level'):
+                current_level = self.move_logic.get_difficulty_level()
+                # 将数字转换为字符串
+                level_map = {1: "Easy", 2: "Normal", 3: "Hard"}
+                difficulty = level_map.get(current_level, "Normal")
+                print(f"从AI获取当前难度: {current_level} -> {difficulty}")
+                return difficulty
+            elif hasattr(self.move_logic, 'difficulty_level'):
+                current_level = self.move_logic.difficulty_level
+                level_map = {1: "Easy", 2: "Normal", 3: "Hard"}
+                difficulty = level_map.get(current_level, "Normal")
+                print(f"从AI获取当前难度(备用): {current_level} -> {difficulty}")
+                return difficulty
+            else:
+                print("AI对象没有难度属性，使用默认Normal")
+                return "Normal"
+        except Exception as e:
+            print(f"获取当前难度失败: {e}")
+            return "Normal"
+
     def show(self):
         """
         显示设置窗口主循环。
@@ -184,6 +211,10 @@ class SettingUI:
         
         # 确保背景图片适应当前窗口尺寸
         self._load_background_image()
+        
+        # 每次显示时重新获取当前设置
+        self.selected_difficulty = self._get_current_difficulty()
+        print(f"设置界面显示 - 当前选中难度: {self.selected_difficulty}")
         
         self.running = True
         clock = pygame.time.Clock()
@@ -561,24 +592,25 @@ class SettingUI:
         """
         try:
             difficulty_value = self.difficulty_map[level]
-            # 尝试多种可能的方法名
+            
+            print(f"开始设置难度: {level} (值: {difficulty_value})")
+            
+            # 使用标准化方法设置难度
             if hasattr(self.move_logic, "set_difficulty_level"):
-                self.move_logic.set_difficulty_level(difficulty_value)
-            elif hasattr(self.move_logic, "set_difficulty"):
-                self.move_logic.set_difficulty(difficulty_value)
-            elif hasattr(self.move_logic, "SEARCH_DEPTH"):
-                setattr(self.move_logic, "SEARCH_DEPTH", difficulty_value)
-            elif hasattr(self.move_logic, "difficulty"):
-                setattr(self.move_logic, "difficulty", difficulty_value)
+                result = self.move_logic.set_difficulty_level(difficulty_value)
+                if result:
+                    print(f"AI难度已成功设置为: {level} (值: {difficulty_value})")
+                    # 更新界面显示的选中状态
+                    self.selected_difficulty = level
+                    # 同步到游戏实例
+                    if self.game_instance:
+                        self.game_instance.update_difficulty_setting(level)
+                        print(f"游戏实例难度已更新: {level}")
+                else:
+                    print(f"设置AI难度失败: {level}")
             else:
-                print(f"AI对象不支持难度设置，尝试设置搜索深度")
-                # 直接设置可能存在的属性
-                for attr_name in ["search_depth", "depth", "level"]:
-                    if hasattr(self.move_logic, attr_name):
-                        setattr(self.move_logic, attr_name, difficulty_value)
-                        print(f"已设置 {attr_name} = {difficulty_value}")
-                        break
-            print(f"AI难度已设置为: {level} (值: {difficulty_value})")
+                print("AI对象不支持难度设置方法")
+                
         except Exception as e:
             print("设置难度异常:", e)
             traceback.print_exc()
