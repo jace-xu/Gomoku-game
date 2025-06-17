@@ -11,6 +11,10 @@ from logic.comment import GameCommentator # AI评语生成模块
 from ui.menu_ui import GameUI             # 游戏UI管理模块，负责菜单显示
 from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制和交互
 from ui.past_ui import HistoryUI          # 历史记录UI模块
+from ui.setting_ui import SettingUI       # 设置UI模块
+
+# 导入动画模块
+from ui.animation_ui import create_animation_player
 
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
@@ -50,9 +54,81 @@ class GomokuGame:
         # 初始化评语生成器
         self.commentator = GameCommentator()
         
+        # 设置UI实例
+        self.setting_ui = None
+        
+        # 背景设置持久化
+        self.current_background = None  # 当前选中的背景文件路径
+        self.current_difficulty = 'Normal'  # 默认难度
+        self._load_settings()  # 加载保存的设置
+        
+        # 动画播放器
+        self.animation_player = None
+        
         # 调用初始化方法
         self._init_game_components()
     
+    def _load_settings(self):
+        """加载保存的游戏设置"""
+        try:
+            settings_file = os.path.join(os.path.dirname(__file__), 'game_database', 'settings.json')
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    self.current_background = settings.get('background_path', None)
+                    self.current_difficulty = settings.get('difficulty', 'Normal')
+                    print(f"加载设置 - 背景: {self.current_background}, 难度: {self.current_difficulty}")
+        except Exception as e:
+            print(f"加载设置失败: {e}")
+            self.current_background = None
+            self.current_difficulty = 'Normal'
+
+    def _save_settings(self):
+        """保存游戏设置"""
+        try:
+            settings_dir = os.path.join(os.path.dirname(__file__), 'game_database')
+            os.makedirs(settings_dir, exist_ok=True)
+            settings_file = os.path.join(settings_dir, 'settings.json')
+            
+            settings = {
+                'background_path': self.current_background,
+                'difficulty': getattr(self, 'current_difficulty', 'Normal')
+            }
+            
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+            print(f"设置已保存 - 背景: {self.current_background}, 难度: {getattr(self, 'current_difficulty', 'Normal')}")
+        except Exception as e:
+            print(f"保存设置失败: {e}")
+
+    def update_difficulty_setting(self, difficulty):
+        """更新难度设置并持久化"""
+        print(f"游戏实例更新难度设置: {difficulty}")
+        self.current_difficulty = difficulty
+        
+        # 立即应用到AI
+        if self.ai:
+            difficulty_map = {"Easy": 1, "Normal": 2, "Hard": 3}
+            if difficulty in difficulty_map:
+                difficulty_level = difficulty_map[difficulty]
+                success = self.ai.set_difficulty_level(difficulty_level)
+                if success:
+                    print(f"AI难度立即更新成功: {difficulty} (级别: {difficulty_level})")
+                else:
+                    print(f"AI难度立即更新失败: {difficulty}")
+        
+        # 保存到文件
+        self._save_settings()
+        print(f"难度设置已更新并保存: {difficulty}")
+
+    def update_background_setting(self, background_path):
+        """更新背景设置并持久化"""
+        self.current_background = background_path
+        self._save_settings()
+        # 如果board_ui已初始化，立即应用背景
+        if self.board_ui:
+            self.board_ui.set_background(background_path)
+
     def _init_game_components(self):
         """初始化游戏核心组件 - 创建各个模块的实例"""
         
@@ -77,7 +153,18 @@ class GomokuGame:
             ai_player=self.ai_player,
             human_player=self.human_player
         )
-    
+        
+        # 应用保存的难度设置
+        if hasattr(self, 'current_difficulty'):
+            difficulty_map = {"Easy": 1, "Normal": 2, "Hard": 3}
+            if self.current_difficulty in difficulty_map:
+                difficulty_level = difficulty_map[self.current_difficulty]
+                success = self.ai.set_difficulty_level(difficulty_level)
+                if success:
+                    print(f"应用保存的难度设置成功: {self.current_difficulty} (级别: {difficulty_level})")
+                else:
+                    print(f"应用保存的难度设置失败: {self.current_difficulty}")
+
     def _init_game_screen(self):
         """初始化游戏屏幕和棋盘UI - 根据棋盘大小计算合适的显示尺寸"""
         
@@ -108,17 +195,47 @@ class GomokuGame:
             background_color=(240, 217, 181)  # 木制棋盘的暖色调
         )
         
+        # 应用保存的背景设置
+        if self.current_background and os.path.exists(self.current_background):
+            self.board_ui.set_background(self.current_background)
+        else:
+            # 如果没有保存的背景或背景文件不存在，使用默认背景
+            self.board_ui.set_background(None)
+        
         # 初始化音频
         self._init_audio()
-    
+        
+        # 初始化设置UI
+        self._init_setting_ui()
+        
+        # 初始化动画播放器
+        self._init_animation_player()
+
     def _init_audio(self):
         """初始化游戏音频"""
         try:
             # 设置背景音乐和落子音效（使用相对路径）
-            self.board_ui.set_background_music("assets/board_bgm.mp3")
+            self.board_ui.set_background_music("assets/BGM/board_bgm.mp3")
             self.board_ui.set_piece_sound("assets/piece_sound.mp3")
         except Exception as e:
             print(f"音频初始化失败: {e}")
+
+    def _init_setting_ui(self):
+        """初始化设置UI"""
+        if self.screen and self.ai and self.board_ui:
+            self.setting_ui = SettingUI(
+                screen=self.screen,
+                move_logic=self.ai,
+                board_ui=self.board_ui,
+                assets_path="assets",
+                background_image="assets/loadbackground.jpg",
+                game_instance=self  # 传递游戏实例引用
+            )
+
+    def _init_animation_player(self):
+        """初始化动画播放器"""
+        if self.screen:
+            self.animation_player = create_animation_player(self.screen)
 
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
@@ -288,7 +405,7 @@ class GomokuGame:
             print(f"保存游戏结果失败: {e}")
 
     def show_result(self):
-        """显示游戏结果 - 调用UI模块显示胜负结果和评语"""
+        """显示游戏结果 - 先播放动画，然后显示评语"""
         
         # 从保存的结果获取
         if hasattr(self, 'current_game_result'):
@@ -297,11 +414,29 @@ class GomokuGame:
             result = self._get_latest_result()
         
         if result is not None:
+            # 1. 首先播放动画
+            if self.animation_player:
+                try:
+                    if result == 1:  # 人类获胜
+                        print("播放胜利动画")
+                        self.animation_player.play_victory_animation()
+                    elif result == 0:  # AI获胜
+                        print("播放失败动画")
+                        self.animation_player.play_defeat_animation()
+                    # 平局(result==2)不播放动画
+                except Exception as e:
+                    print(f"播放动画失败: {e}")
+            
+            # 2. 然后显示评语窗口
+            # 准备用于评语生成的数据，确保类型转换
+            board_state_for_comment = [[int(cell) for cell in row] for row in self.board_state.board]
+            move_history_for_comment = [[int(move[0]), int(move[1]), int(move[2])] for move in self.board_state.move_history]
+            
             # 显示结果窗口，包含异步评语生成和打字机效果
             result_confirmed, generated_comment = self.game_ui.show_result_menu_with_async_comment(
                 result=result, 
-                board_state=[row[:] for row in self.board_state.board],
-                move_history=[list(move) for move in self.board_state.move_history],
+                board_state=board_state_for_comment,
+                move_history=move_history_for_comment,
                 commentator=self.commentator
             )
             
@@ -325,13 +460,17 @@ class GomokuGame:
         
         def save_history():
             try:
-                self.board_state.save_to_history(custom_comment=comment, game_result=result)
+                # 转换数据类型以确保JSON序列化兼容
+                safe_result = int(result) if result is not None else 0
+                safe_comment = str(comment) if comment else "这是一场精彩的对弈！"
+                
+                self.board_state.save_to_history(custom_comment=safe_comment, game_result=safe_result)
                 print("完整游戏记录已保存")
             except Exception as e:
                 print(f"保存完整记录失败: {e}")
                 # 保存基本记录
                 try:
-                    self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=result)
+                    self.board_state.save_to_history(custom_comment="这是一场精彩的对弈！", game_result=int(result) if result is not None else 0)
                     print("基本游戏记录已保存")
                 except Exception as e2:
                     print(f"保存基本记录也失败: {e2}")
@@ -458,9 +597,8 @@ class GomokuGame:
                     self.show_history()
                     
                 elif choice == "settings":
-                    # 设置菜单（功能预留，暂未实现）
-                    print("设置功能尚未实现")
-                    # 这里可以扩展：棋盘大小设置、AI难度设置、音效设置等
+                    # 显示设置界面
+                    self.show_settings()
                     
                 elif choice == "quit":
                     # 退出游戏
@@ -481,7 +619,13 @@ class GomokuGame:
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
         
-        # BoardUI.draw_board() - 绘制棋盘网格和背景
+        # 完全清除屏幕
+        self.screen.fill((0, 0, 0))  # 用黑色清除屏幕
+        
+        # 先绘制背景 - 删除任何可能的调试输出
+        self.board_ui.draw_background()
+        
+        # BoardUI.draw_board() - 绘制棋盘网格
         self.board_ui.draw_board()
         
         # BoardUI.draw_pieces() - 根据棋盘状态绘制所有棋子
@@ -572,6 +716,35 @@ class GomokuGame:
         
         return True  # 继续游戏循环
 
+    def show_settings(self):
+        """显示设置界面"""
+        try:
+            # 确保游戏屏幕已初始化
+            if self.screen is None:
+                self._init_game_screen()
+            
+            # 确保设置UI已初始化
+            if self.setting_ui is None:
+                self._init_setting_ui()
+            
+            # 显示设置界面
+            if self.setting_ui:
+                self.setting_ui.show()
+            else:
+                print("设置UI初始化失败")
+                
+        except Exception as e:
+            print(f"显示设置界面失败: {e}")
+            # 如果失败，创建临时屏幕显示错误信息
+            temp_screen = pygame.display.set_mode((800, 600))
+            temp_screen.fill((255, 255, 255))
+            font = pygame.font.Font(None, 36)
+            error_text = font.render(f"Settings load failed: {str(e)}", True, (255, 0, 0))
+            text_rect = error_text.get_rect(center=(400, 300))
+            temp_screen.blit(error_text, text_rect)
+            pygame.display.flip()
+            pygame.time.wait(2000)  # 显示2秒错误信息
+
 def main():
     """
     主函数 - 程序入口点
@@ -594,6 +767,8 @@ def main():
         print(f"程序启动失败: {e}")
         input("按任意键退出...")
 
+
 # Python脚本入口点
 if __name__ == "__main__":
+    main()
     main()

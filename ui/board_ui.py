@@ -6,12 +6,15 @@ class BoardUI:
         """
         初始化棋盘UI。
         
-        :param screen: pygame 的主窗口
+        :param screen: pygame 的主窗口 (必须传入，不创建新窗口)
         :param board_size: 棋盘大小(格子数,默认15)
         :param grid_size: 每格像素大小,默认40
         :param margin: 边距，如果为None则等于grid_size
         :param background_color: 背景颜色
         """
+        if screen is None:
+            raise ValueError("screen参数不能为None，必须传入已存在的pygame display surface")
+        
         self.screen = screen
         self.board_size = board_size
         self.grid_size = grid_size
@@ -30,15 +33,20 @@ class BoardUI:
         self.white_piece_color = (255, 255, 255)
         self.piece_border_color = (0, 0, 0)
 
+        # 背景图片相关 - 新增属性
+        self.background_image = None  # 背景图片Surface对象
+        self.use_background_image = False  # 是否使用背景图片
+
         # 初始化音频
         pygame.mixer.init()
         self.background_music = None
         self.piece_sound = None
+        self.current_bgm_volume = 0.5  # 当前BGM音量（0.0-1.0）
 
         # 按钮相关
         self.button_color = (100, 100, 100)  # 按钮颜色
         self.button_text_color = (255, 255, 255)  # 按钮文字颜色
-        self.button_font = pygame.font.Font(None, 24)  # 按钮字体
+        self._init_button_font()  # 使用统一的字体初始化
         self.button_width = 100  # 按钮宽度
         self.button_height = 40  # 按钮高度
         self.button_margin = 10  # 按钮间距
@@ -46,6 +54,37 @@ class BoardUI:
         # 按钮位置
         self.undo_button_rect = None
         self.settings_button_rect = None
+
+        # 自动加载默认音频
+        self._load_default_audio()
+
+    def _init_button_font(self):
+        """初始化按钮字体，使用统一的字体加载方式"""
+        try:
+            # 首先尝试加载中文字体
+            self.button_font = pygame.font.Font("msyh.ttf", 24)
+        except (OSError, pygame.error):
+            # 如果中文字体加载失败，使用默认字体
+            self.button_font = pygame.font.Font(None, 24)
+
+    def _load_default_audio(self):
+        """加载默认音频文件"""
+        try:
+            # 加载默认BGM
+            default_bgm_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "BGM", "board_bgm.mp3")
+            if os.path.exists(default_bgm_path):
+                self.set_background_music("assets/BGM/board_bgm.mp3")
+            else:
+                print(f"默认BGM文件不存在: {default_bgm_path}")
+            
+            # 加载默认落子音效
+            default_sound_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "piece_sound.mp3")
+            if os.path.exists(default_sound_path):
+                self.set_piece_sound("assets/piece_sound.mp3")
+            else:
+                print(f"默认音效文件不存在: {default_sound_path}")
+        except Exception as e:
+            print(f"加载默认音频失败: {e}")
 
     def set_background_music(self, music_file):
         """
@@ -59,9 +98,13 @@ class BoardUI:
             if not os.path.isabs(music_file):
                 music_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), music_file)
             
-            pygame.mixer.music.load(music_file)
-            pygame.mixer.music.play(-1)  # 循环播放
-            print("背景音乐加载成功并开始播放！")
+            if os.path.exists(music_file):
+                pygame.mixer.music.load(music_file)
+                pygame.mixer.music.play(-1)  # 循环播放
+                pygame.mixer.music.set_volume(self.current_bgm_volume)
+                print(f"背景音乐加载成功并开始播放: {music_file}")
+            else:
+                print(f"背景音乐文件不存在: {music_file}")
         except Exception as e:
             print(f"背景音乐加载失败: {e}")
 
@@ -76,94 +119,98 @@ class BoardUI:
             if not os.path.isabs(sound_file):
                 sound_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), sound_file)
             
-            self.piece_sound = pygame.mixer.Sound(sound_file)
-            if self.piece_sound is None:
-                print("音效加载失败，请检查文件路径和格式！")
+            if os.path.exists(sound_file):
+                self.piece_sound = pygame.mixer.Sound(sound_file)
+                if self.piece_sound is None:
+                    print("音效加载失败，请检查文件路径和格式！")
+                else:
+                    print("落子音效加载成功！")
             else:
-                print("落子音效加载成功！")
+                print(f"音效文件不存在: {sound_file}")
         except Exception as e:
             print(f"加载音效失败: {e}")
 
-    def play_piece_sound(self):
+    def set_bgm_file(self, bgm_file):
         """
-        播放落子音效
-        """
-        if self.piece_sound:
-            self.piece_sound.play()
-
-    def stop_background_music(self):
-        """
-        停止背景音乐
-        """
-        pygame.mixer.music.stop()
-
-    def pause_background_music(self):
-        """
-        暂停背景音乐
-        """
-        pygame.mixer.music.pause()
-
-    def unpause_background_music(self):
-        """
-        恢复背景音乐
-        """
-        pygame.mixer.music.unpause()
-
-    def get_required_size(self):
-        """
-        获取棋盘UI所需的最小屏幕尺寸
+        设置BGM文件但不立即播放（用于设置界面）
         
-        :return: tuple，(width, height)
+        :param bgm_file: BGM文件名（相对于BGM文件夹）
         """
-        return (self.total_width, self.total_height)
+        if bgm_file is None:
+            # 停止音乐
+            pygame.mixer.music.stop()
+            self.background_music = None
+            print("BGM已停止")
+        else:
+            # 构建完整路径
+            bgm_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "BGM", bgm_file)
+            if os.path.exists(bgm_path):
+                try:
+                    pygame.mixer.music.load(bgm_path)
+                    pygame.mixer.music.play(-1)
+                    pygame.mixer.music.set_volume(self.current_bgm_volume)
+                    self.background_music = bgm_path
+                    print(f"BGM已切换到: {bgm_file}")
+                except Exception as e:
+                    print(f"BGM切换失败: {e}")
+            else:
+                print(f"BGM文件不存在: {bgm_path}")
 
-    def is_position_valid(self, x, y):
+    def set_sound_level(self, level):
         """
-        检查棋盘坐标是否有效
+        设置音效音量等级
         
-        :param x: x坐标（列）
-        :param y: y坐标（行）
-        :return: bool
+        :param level: 音量等级，0-100
         """
-        return 0 <= x < self.board_size and 0 <= y < self.board_size
+        try:
+            # 设置落子音效音量
+            if self.piece_sound:
+                volume = level / 100.0
+                self.piece_sound.set_volume(volume)
+            
+            # 设置BGM音量
+            self.current_bgm_volume = level / 100.0
+            pygame.mixer.music.set_volume(self.current_bgm_volume)
+            
+            print(f"音量设置为: {level}%")
+        except Exception as e:
+            print(f"设置音量失败: {e}")
 
-    def pixel_to_board(self, pixel_x, pixel_y):
+    def set_background(self, background_path):
         """
-        将像素坐标转换为棋盘坐标
+        设置棋盘背景图片
         
-        :param pixel_x: 像素x坐标
-        :param pixel_y: 像素y坐标
-        :return: tuple，(board_x, board_y) 或 None（如果超出范围）
+        :param background_path: 背景图片路径
         """
-        x = round((pixel_x - self.margin) / self.grid_size)
-        y = round((pixel_y - self.margin) / self.grid_size)
-        
-        if self.is_position_valid(x, y):
-            return (x, y)
-        return None
-
-    def board_to_pixel(self, board_x, board_y):
-        """
-        将棋盘坐标转换为像素坐标
-        
-        :param board_x: 棋盘x坐标
-        :param board_y: 棋盘y坐标
-        :return: tuple，(pixel_x, pixel_y)
-        """
-        pixel_x = self.margin + board_x * self.grid_size
-        pixel_y = self.margin + board_y * self.grid_size
-        return (pixel_x, pixel_y)
+        try:
+            print(f"尝试加载背景: {background_path}")
+            # 加载新背景图片
+            new_background = pygame.image.load(background_path).convert()
+            # 缩放到适合的尺寸
+            screen_size = self.screen.get_size()
+            self.background_image = pygame.transform.scale(new_background, screen_size)
+            self.use_background_image = True  # 启用背景图片
+            print(f"背景图片已更新并启用: {background_path}")
+            print(f"背景图片尺寸: {self.background_image.get_size()}")
+            print(f"屏幕尺寸: {screen_size}")
+        except Exception as e:
+            print(f"设置背景图片失败: {e}")
+            # 如果失败，恢复使用颜色背景
+            self.use_background_image = False
+            self.background_image = None
 
     def draw_background(self):
         """绘制背景"""
-        self.screen.fill(self.background_color)
+        if self.use_background_image and self.background_image:
+            # 使用背景图片
+            self.screen.blit(self.background_image, (0, 0))
+        else:
+            # 使用背景颜色
+            self.screen.fill(self.background_color)
 
     def draw_board(self):
         """绘制棋盘网格。"""
-        # 绘制背景
-        self.draw_background()
-        
-        # 绘制网格线
+        # 绘制网格线，不要清除背景
         for i in range(self.board_size):
             # 水平线
             start_x = self.margin
@@ -314,3 +361,60 @@ class BoardUI:
         elif self.settings_button_rect and self.settings_button_rect.collidepoint(mouse_pos):
             return "settings"
         return None
+
+    def board_to_pixel(self, board_x, board_y):
+        """
+        将棋盘坐标转换为像素坐标
+        
+        :param board_x: 棋盘x坐标（列）
+        :param board_y: 棋盘y坐标（行）
+        :return: (pixel_x, pixel_y) 像素坐标
+        """
+        pixel_x = self.margin + board_x * self.grid_size
+        pixel_y = self.margin + board_y * self.grid_size
+        return pixel_x, pixel_y
+
+    def pixel_to_board(self, pixel_x, pixel_y):
+        """
+        将像素坐标转换为棋盘坐标
+        
+        :param pixel_x: 像素x坐标
+        :param pixel_y: 像素y坐标
+        :return: (board_x, board_y) 棋盘坐标，如果超出范围则返回None
+        """
+        # 检查是否在棋盘区域内
+        if (pixel_x < self.margin or pixel_x > self.margin + (self.board_size - 1) * self.grid_size or
+            pixel_y < self.margin or pixel_y > self.margin + (self.board_size - 1) * self.grid_size):
+            return None
+        
+        # 计算棋盘坐标
+        board_x = round((pixel_x - self.margin) / self.grid_size)
+        board_y = round((pixel_y - self.margin) / self.grid_size)
+        
+        # 确保坐标在有效范围内
+        if 0 <= board_x < self.board_size and 0 <= board_y < self.board_size:
+            return board_x, board_y
+        else:
+            return None
+
+    def is_position_valid(self, x, y):
+        """
+        检查位置是否有效
+        
+        :param x: x坐标
+        :param y: y坐标
+        :return: bool，位置是否有效
+        """
+        return 0 <= x < self.board_size and 0 <= y < self.board_size
+
+    def play_piece_sound(self):
+        """播放落子音效"""
+        try:
+            if self.piece_sound:
+                self.piece_sound.play()
+        except Exception as e:
+            print(f"播放落子音效失败: {e}")
+
+    def clear_screen(self):
+        """完全清除屏幕内容"""
+        self.screen.fill(self.background_color)

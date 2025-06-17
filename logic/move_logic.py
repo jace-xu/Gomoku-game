@@ -1,553 +1,1000 @@
 import numpy as np
 import random
-import time
 from collections import defaultdict
 
 
 class GomokuAI:
-    """五子棋AI决策模块，具有增强的评估函数和搜索算法，特别是对活三的防守能力"""
+    """优化版五子棋AI：优先堵截对手三四阵型"""
 
-    # 棋型评分常量 - 更新为更精细的评分体系
-    FIVE = 1000000  # 五连
-    OPEN_FOUR = 50000  # 活四
-    FOUR = 10000  # 冲四（眠四）
-    DOUBLE_FOUR = 30000  # 双冲四
-    OPEN_THREE = 8000  # 活三
-    DOUBLE_OPEN_THREE = 20000  # 双活三
-    THREE = 2000  # 眠三
-    OPEN_TWO = 1000  # 活二
-    DOUBLE_OPEN_TWO = 3000  # 双活二
-    TWO = 100  # 眠二
-    ONE = 10  # 活一
-    DEFENSE_BONUS = 30000  # 防守加成（提高活三威胁的权重）
+    # 评分常量（提高获胜权重）
+    FIVE = 1000000
+    OPP_OPEN_FOUR = 900000
+    OPP_FOUR = 850000
+    OPP_OPEN_THREE = 750000
+    OPP_JUMP_THREE = 650000
+    OPP_SPLIT_THREE = 650000
+    OPP_THREE = 50000
+    OPP_TWO = 10000
+    OPP_ONE = 1
 
-    SEARCH_DEPTH = 3  # 默认搜索深度
-    MAX_DEPTH = 6  # 最大搜索深度
-    TIME_LIMIT = 1.5  # 时间限制（秒）
+    MY_OPEN_FOUR = 900000
+    MY_FOUR = 850000
+    MY_OPEN_THREE = 350000
+    MY_JUMP_THREE = 250000
+    MY_SPLIT_THREE = 250000
+    MY_THREE = 25000
+    MY_TWO = 10000
+    MY_ONE = 1
 
+    # 搜索参数
+    SEARCH_DEPTH = 2
     DIRECTIONS = [(1, 0), (0, 1), (1, 1), (1, -1)]
-
-    OPENING_BOOK = [
-        [(7, 7)],  # 天元开局
-        [(6, 6), (8, 8), (6, 8), (8, 6)],  # 星位开局
-        [(7, 8), (8, 7), (6, 7), (7, 6)]  # 边星开局
-    ]
+    DEFENSE_WEIGHT = 4.0
+    DIAGONAL_PRIORITY = True
+    PROXIMITY_WEIGHT = 3000
+    OFFENSIVE_BONUS = 1.8
+    MAX_SCORE_LIMIT = 1000000000
+    TRAP_BONUS = 500000
+    WINNING_PRIORITY = 10000000  # 获胜位置额外优先级
+    DOUBLE_THREAT_BONUS = 300000  # 双威胁额外权重
+    COMBO_THREAT_BONUS = 800000  # 组合威胁额外权重（提高优先级）
 
     def __init__(self, board_size=15, ai_player=2, human_player=1):
-        if ai_player == human_player:
-            raise ValueError("AI玩家和人类玩家编号不能相同")
-        if ai_player not in [1, 2] or human_player not in [1, 2]:
-            raise ValueError("玩家编号必须是1或2")
-
         self.board_size = board_size
         self.ai_player = ai_player
         self.human_player = human_player
-        self.move_count = 0
-
         self.board = np.zeros((board_size, board_size), dtype=int)
-
         self.best_move = None
-        self.max_score = -float('inf')
-
         self.threat_space = set()
+        self.diagonal_threats = defaultdict(int)
+        
+        # 历史表和其他缺失的属性
+        self.history_table = {}  # 历史启发式表
+        self.killer_moves = [[] for _ in range(10)]  # 杀手移动表
+        self.transposition_table = {}  # 置换表
+        
+        # 难度相关设置
+        self.difficulty_level = 2  # 默认难度：Normal (1=Easy, 2=Normal, 3=Hard)
+        self.use_random_strategy = False  # 是否使用随机策略
+        self._update_difficulty_settings()
+        
+        self.reset_board()
 
-        self.history_table = np.zeros((board_size, board_size), dtype=int)
+    def _update_difficulty_settings(self):
+        """根据难度等级更新AI参数"""
+        if self.difficulty_level == 1:  # Easy - 完全随机
+            self.SEARCH_DEPTH = 0  # 不使用搜索
+            self.DEFENSE_WEIGHT = 0.1  # 几乎不防守
+            self.PROXIMITY_WEIGHT = 50  # 很低的邻近权重
+            self.COMBO_THREAT_BONUS = 1000  # 大幅降低威胁检测
+            self.WINNING_PRIORITY = 10000  # 很低的获胜优先级
+            self.use_random_strategy = True  # 启用完全随机策略
+            self.random_probability = 0.95  # 95%概率完全随机
+        elif self.difficulty_level == 2:  # Normal - 中等智能
+            self.SEARCH_DEPTH = 2
+            self.DEFENSE_WEIGHT = 4.0
+            self.PROXIMITY_WEIGHT = 3000
+            self.COMBO_THREAT_BONUS = 800000
+            self.WINNING_PRIORITY = 10000000
+            self.use_random_strategy = False
+            self.random_probability = 0.0
+        elif self.difficulty_level == 3:  # Hard - 超强AI
+            self.SEARCH_DEPTH = 4  # 增加搜索深度
+            self.DEFENSE_WEIGHT = 10.0  # 大幅提高防守权重
+            self.PROXIMITY_WEIGHT = 8000  # 提高位置价值
+            self.COMBO_THREAT_BONUS = 2000000  # 更强的威胁检测
+            self.WINNING_PRIORITY = 50000000  # 最高获胜优先级
+            self.use_random_strategy = False
+            self.random_probability = 0.0
+            # Hard模式专用设置
+            self.enable_deep_analysis = True
+            self.enable_killer_moves = True
+            self.enable_advanced_patterns = True
+        
+        print(f"AI难度已设置为级别 {self.difficulty_level}, 搜索深度: {self.SEARCH_DEPTH}, 随机策略: {getattr(self, 'use_random_strategy', False)}")
 
-        self.killer_moves = [None] * (self.MAX_DEPTH + 1)
+    def set_difficulty_level(self, level):
+        """
+        设置AI难度等级
+        :param level: 难度等级 (1=Easy, 2=Normal, 3=Hard)
+        """
+        if level in [1, 2, 3]:
+            self.difficulty_level = level
+            self._update_difficulty_settings()
+            return True
+        else:
+            print(f"无效的难度等级: {level}，应该是 1(Easy), 2(Normal), 或 3(Hard)")
+            return False
+
+    def set_difficulty(self, level):
+        """兼容方法：设置难度"""
+        return self.set_difficulty_level(level)
+
+    def get_difficulty_level(self):
+        """获取当前难度等级"""
+        return self.difficulty_level
+
+    def get_difficulty_name(self):
+        """获取当前难度名称"""
+        difficulty_names = {1: "Easy", 2: "Normal", 3: "Hard"}
+        return difficulty_names.get(self.difficulty_level, "Unknown")
 
     def set_board_state(self, board):
         if isinstance(board, list):
             board = np.array(board)
-
-        if not isinstance(board, np.ndarray):
-            raise TypeError("棋盘状态必须是numpy数组或二维列表")
-
-        if board.shape != (self.board_size, self.board_size):
-            raise ValueError(f"棋盘状态必须是大小为{self.board_size}x{self.board_size}的数组")
-
         self.board = board.copy().astype(int)
-        self.move_count = np.count_nonzero(board)
-
         self._update_threat_space()
 
     def _update_threat_space(self):
         self.threat_space = set()
+        self.diagonal_threats.clear()
+
+        # 检查已有棋子周围3格内的空位
         for i in range(self.board_size):
             for j in range(self.board_size):
                 if self.board[i][j] != 0:
-                    for dx in (-3, -2, -1, 0, 1, 2, 3):
-                        for dy in (-3, -2, -1, 0, 1, 2, 3):
+                    for dx in range(-3, 4):
+                        for dy in range(-3, 4):
                             if dx == 0 and dy == 0:
                                 continue
                             x, y = i + dx, j + dy
-                            if 0 <= x < self.board_size and 0 <= y < self.board_size:
-                                if self.board[x][y] == 0:
-                                    self.threat_space.add((x, y))
-        if not self.threat_space and self.board_size > 4:
-            center = self.board_size // 2
-            for i in range(center - 3, center + 4):
-                for j in range(center - 3, center + 4):
-                    if self.board[i][j] == 0:
-                        self.threat_space.add((i, j))
+                            if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == 0:
+                                self.threat_space.add((x, y))
+                                if abs(dx) == abs(dy):
+                                    self.diagonal_threats[(x, y)] += 2
+                                else:
+                                    self.diagonal_threats[(x, y)] += 1
 
     def get_valid_moves(self):
-        return list(self.threat_space) if self.threat_space else self.get_empty_positions()
+        if self.threat_space:
+            threat_moves = list(self.threat_space)
+            threat_moves.sort(key=lambda pos: self.diagonal_threats.get(pos, 0), reverse=True)
+            return threat_moves
 
-    def evaluate_position(self, player):
-        score = 0
-        opponent = 3 - player
+        human_pos = np.argwhere(self.board == self.human_player)
+        ai_pos = np.argwhere(self.board == self.ai_player)
+        all_pos = np.vstack((human_pos, ai_pos)) if human_pos.size > 0 and ai_pos.size > 0 else human_pos
 
+        if all_pos.size > 0:
+            adjacent = set()
+            for (i, j) in all_pos:
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        if dx == 0 and dy == 0:
+                            continue
+                        x, y = i + dx, j + dy
+                        if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == 0:
+                            adjacent.add((x, y))
+            if adjacent:
+                return list(adjacent)
+
+        center = self.board_size // 2
+        return [(i, j) for i in range(center - 2, center + 3)
+                for j in range(center - 2, center + 3)
+                if self.board[i][j] == 0]
+
+    def evaluate_position(self):
+        threat_score = self._evaluate_player_threat(self.human_player, defensive=True) * self.DEFENSE_WEIGHT
+        offense_score = self._evaluate_player_threat(self.ai_player, defensive=False)
+
+        # 检测陷阱模式并增加额外奖励
+        trap_score = self._detect_trap_patterns()
+        return offense_score - threat_score + trap_score
+
+    def _detect_trap_patterns(self):
+        """检测三子一行两子一行的陷阱模式"""
+        trap_score = 0
+
+        # 检测横向陷阱
         for i in range(self.board_size):
-            for j in range(self.board_size):
-                if self.board[i][j] == player:
-                    for dx, dy in self.DIRECTIONS:
-                        score += self._evaluate_direction(i, j, dx, dy, player)
-                elif self.board[i][j] == opponent:
-                    for dx, dy in self.DIRECTIONS:
-                        # 提高对手活三的威胁权重
-                        score -= (self._evaluate_direction(i, j, dx, dy, opponent) * 1.5) + self.DEFENSE_BONUS
+            for j in range(self.board_size - 5):
+                # 三子一行
+                if (self.board[i][j] == self.human_player and
+                        self.board[i][j + 1] == self.human_player and
+                        self.board[i][j + 2] == self.human_player and
+                        self.board[i][j + 3] == 0):  # 空位是关键
 
+                    # 检查下方是否有两子
+                    if i < self.board_size - 1:
+                        if (self.board[i + 1][j + 3] == self.human_player and
+                                self.board[i + 1][j + 4] == self.human_player):
+                            trap_score += self.TRAP_BONUS
+
+                    # 检查上方是否有两子
+                    if i > 0:
+                        if (self.board[i - 1][j + 3] == self.human_player and
+                                self.board[i - 1][j + 4] == self.human_player):
+                            trap_score += self.TRAP_BONUS
+
+        # 检测纵向陷阱
+        for i in range(self.board_size - 5):
+            for j in range(self.board_size):
+                # 三子一列
+                if (self.board[i][j] == self.human_player and
+                        self.board[i + 1][j] == self.human_player and
+                        self.board[i + 2][j] == self.human_player and
+                        self.board[i + 3][j] == 0):  # 空位是关键
+
+                    # 检查右侧是否有两子
+                    if j < self.board_size - 1:
+                        if (self.board[i + 3][j + 1] == self.human_player and
+                                self.board[i + 3][j + 2] == self.human_player):
+                            trap_score += self.TRAP_BONUS
+
+                    # 检查左侧是否有两子
+                    if j > 0:
+                        if (self.board[i + 3][j - 1] == self.human_player and
+                                self.board[i + 3][j - 2] == self.human_player):
+                            trap_score += self.TRAP_BONUS
+
+        return trap_score
+
+    def _evaluate_player_threat(self, player, defensive=True):
+        score = 0
+
+        # 对角线方向优先检测
+        if self.DIAGONAL_PRIORITY:
+            for dx, dy in [(1, 1), (1, -1)]:
+                for i in range(self.board_size):
+                    for j in range(self.board_size):
+                        if self.board[i][j] == player:
+                            score += self._evaluate_pattern(i, j, dx, dy, player, defensive)
+
+        # 水平和垂直方向检测
+        for dx, dy in [(1, 0), (0, 1)]:
+            for i in range(self.board_size):
+                for j in range(self.board_size):
+                    if self.board[i][j] == player:
+                        score += self._evaluate_pattern(i, j, dx, dy, player, defensive)
         return score
 
-    def _evaluate_direction(self, i, j, dx, dy, player):
+    def _evaluate_pattern(self, i, j, dx, dy, player, defensive):
         pattern = []
-        for k in range(-4, 5):
-            x, y = i + k * dx, j + k * dy
+        for k in range(-5, 6):
+            x = i + k * dx
+            y = j + k * dy
             if 0 <= x < self.board_size and 0 <= y < self.board_size:
                 pattern.append(self.board[x][y])
             else:
-                pattern.append(-1)
+                pattern.append(self.human_player if player == self.ai_player else self.ai_player)
 
-        pattern_str = ''.join(['1' if p == player else '0' if p == 0 else '2' for p in pattern])
-        center_index = 4
+        pattern_str = ''.join(['P' if p == player else ('O' if p != 0 else 'E') for p in pattern])
 
-        score = 0
+        if player == self.human_player and defensive:
+            if 'PPPPP' in pattern_str:
+                return self.FIVE
+            if 'EPPPPE' in pattern_str:
+                return self.OPP_OPEN_FOUR
+            if 'EPPPP' in pattern_str or 'PPPPE' in pattern_str:
+                return self.OPP_FOUR
+            if 'EPPPE' in pattern_str:
+                return self.OPP_OPEN_THREE
+            if 'PEPPE' in pattern_str:
+                return self.OPP_SPLIT_THREE
 
-        if '11111' in pattern_str:
-            return self.FIVE
+            segments = self._find_segments(pattern, player)
+            for seg in segments:
+                length, left_open, right_open = seg
+                if length >= 5:
+                    return self.FIVE
+                elif length == 4:
+                    if left_open and right_open:
+                        return self.OPP_OPEN_FOUR
+                    elif left_open or right_open:
+                        return self.OPP_FOUR
+                elif length == 3:
+                    if left_open and right_open:
+                        return self.OPP_OPEN_THREE
+            return 0
+        elif player == self.ai_player and not defensive:
+            if 'W' * 4 in pattern_str:
+                return self.MY_OPEN_FOUR * 2
+            if 'EWWWE' in pattern_str:
+                return self.MY_OPEN_FOUR
+            if 'EWWW' in pattern_str or 'WWWE' in pattern_str:
+                return self.MY_FOUR
 
-        if pattern_str[center_index - 4:center_index + 5] == '011110':
-            return self.OPEN_FOUR
-
-        for pos in range(0, 5):
-            substr = pattern_str[pos:pos + 5]
-            if substr in ['011112', '211110', '10111', '11101', '11011']:
-                score += self.FOUR
-
-        for pos in range(0, 6):
-            substr = pattern_str[pos:pos + 5]
-            if substr in ['001110', '011100', '010110', '011010']:
-                score += self.OPEN_THREE
-
-        for pos in range(0, 5):
-            substr = pattern_str[pos:pos + 5]
-            if substr in ['001112', '211100', '010112', '211010', '011012']:
-                score += self.THREE
-
-        two_count = 0
-        for pos in range(0, 7):
-            substr = pattern_str[pos:pos + 5]
-            if substr == '001100' or substr == '011000' or substr == '000110':
-                two_count += 1
-
-        if two_count >= 2:
-            score += self.DOUBLE_OPEN_TWO
-        elif two_count == 1:
-            score += self.OPEN_TWO
-
-        if '01' in pattern_str:
-            score += self.ONE
-
-        return score
-
-    def alpha_beta(self, depth, alpha, beta, maximizing_player, start_time):
-        if time.time() - start_time > self.TIME_LIMIT:
-            return 0, None
-
-        if depth == 0:
-            ai_score = self.evaluate_position(self.ai_player)
-            human_score = self.evaluate_position(self.human_player) + self.DEFENSE_BONUS
-            return ai_score - human_score * 1.5, None
-
-        valid_moves = self.get_valid_moves()
-
-        if not valid_moves:
-            return 0, None
-
-        sorted_moves = self._sort_moves(valid_moves, self.ai_player if maximizing_player else self.human_player, depth)
-
-        best_move = None
-        if maximizing_player:
-            max_score = -float('inf')
-            for move in sorted_moves:
-                row, col = move
-                self.board[row][col] = self.ai_player
-                self._update_threat_space()
-
-                score, _ = self.alpha_beta(depth - 1, alpha, beta, False, start_time)
-
-                self.board[row][col] = 0
-                self._update_threat_space()
-
-                self.history_table[row][col] += 2 ** depth
-                if self.AI_is_in_defense_mode():
-                    self.history_table[row][col] *= 1.5
-
-                if score > max_score:
-                    max_score = score
-                    best_move = move
-                    if depth == self.SEARCH_DEPTH:
-                        self.best_move = move
-                        self.max_score = score
-
-                alpha = max(alpha, max_score)
-                if beta <= alpha:
-                    if depth >= 2 and move != self.killer_moves[depth]:
-                        self.killer_moves[depth] = move
-                    break
-
-            return max_score, best_move
+            segments = self._find_segments(pattern, player)
+            for seg in segments:
+                length, left_open, right_open = seg
+                if length >= 5:
+                    return self.MY_OPEN_FOUR * 2
+                elif length == 4:
+                    if left_open and right_open:
+                        return self.MY_OPEN_FOUR
+                    elif left_open or right_open:
+                        return self.MY_FOUR
+                elif length == 3:
+                    if left_open and right_open:
+                        return self.MY_OPEN_THREE
+            return 0
         else:
-            min_score = float('inf')
-            for move in sorted_moves:
-                row, col = move
-                self.board[row][col] = self.human_player
-                self._update_threat_space()
+            return 0
 
-                score, _ = self.alpha_beta(depth - 1, alpha, beta, True, start_time)
+    def _find_segments(self, pattern, player):
+        segments = []
+        start = -1
+        for idx, p in enumerate(pattern):
+            if p == player:
+                if start == -1:
+                    start = idx
+            else:
+                if start != -1:
+                    end = idx - 1
+                    left_open = (start == 0) or (pattern[start - 1] != player)
+                    right_open = (end == len(pattern) - 1) or (pattern[end + 1] != player)
+                    segments.append((end - start + 1, left_open, right_open))
+                    start = -1
+        if start != -1:
+            end = len(pattern) - 1
+            left_open = (start == 0) or (pattern[start - 1] != player)
+            right_open = (end == len(pattern) - 1) or (pattern[end + 1] != player)
+            segments.append((end - start + 1, left_open, right_open))
+        return segments
 
-                self.board[row][col] = 0
-                self._update_threat_space()
+    def _check_urgent_moves(self):
+        defensive_moves = defaultdict(list)
+        offensive_moves = defaultdict(list)
 
-                self.history_table[row][col] += 2 ** depth
-                if self.AI_is_in_defense_mode():
-                    self.history_table[row][col] *= 1.5
+        # 1. 优先检测AI的必胜机会（WIN）
+        for i in range(self.board_size):
+            for j in range(self.board_size):
+                if self.board[i][j] != self.ai_player:
+                    continue
 
-                if score < min_score:
-                    min_score = score
-                    best_move = move
+                for dx, dy in self.DIRECTIONS:
+                    threat_type, block_moves = self._detect_threat_in_direction(i, j, dx, dy, self.ai_player)
+                    if threat_type == 'WIN':
+                        return 'offense', block_moves  # 立即返回必胜机会
 
-                beta = min(beta, min_score)
-                if beta <= alpha:
-                    if depth >= 2 and move != self.killer_moves[depth]:
-                        self.killer_moves[depth] = move
-                    break
+        # 2. 检测对手的致命威胁（五连和活四）
+        for i in range(self.board_size):
+            for j in range(self.board_size):
+                if self.board[i][j] != self.human_player:
+                    continue
 
-            return min_score, best_move
+                for dx, dy in self.DIRECTIONS:
+                    threat_type, block_moves = self._detect_threat_in_direction(i, j, dx, dy, self.human_player)
+                    if threat_type in ['FIVE', 'OPEN_FOUR']:
+                        for move in block_moves:
+                            if move not in defensive_moves[threat_type]:
+                                defensive_moves[threat_type].append(move)
 
-    def AI_is_in_defense_mode(self):
-        opponent_score = self.evaluate_position(self.human_player)
-        return opponent_score > self.OPEN_THREE * 0.8
+        # 如果有五连或活四威胁，立即返回
+        if defensive_moves.get('FIVE') or defensive_moves.get('OPEN_FOUR'):
+            return 'defense', defensive_moves.get('FIVE', []) + defensive_moves.get('OPEN_FOUR', [])
 
-    def _sort_moves(self, moves, player, depth=None):
-        move_scores = []
-        killer = self.killer_moves[depth] if depth is not None and depth <= self.MAX_DEPTH else None
+        return None, []
 
-        for move in moves:
-            row, col = move
-            score = 0
+    def _detect_threat_in_direction(self, i, j, dx, dy, player=None):
+        if player is None:
+            player = self.human_player
 
-            if move == killer:
-                score += 10000
+        pattern = []
+        for k in range(-5, 6):
+            x = i + k * dx
+            y = j + k * dy
+            if 0 <= x < self.board_size and 0 <= y < self.board_size:
+                pattern.append(self.board[x][y])
+            else:
+                pattern.append(self.ai_player if player == self.human_player else self.human_player)
 
-            score += self.history_table[row][col]
-
-            if self.AI_is_in_defense_mode():
-                for dx in range(-2, 3):
-                    for dy in range(-2, 3):
-                        if dx == 0 and dy == 0:
-                            continue
-                        ni, nj = row + dx, col + dy
-                        if 0 <= ni < self.board_size and 0 <= nj < self.board_size:
-                            if self.board[ni][nj] == self.human_player:
-                                score += 3000  # 提高防守加成
-
-            center_dist = abs(row - self.board_size // 2) + abs(col - self.board_size // 2)
-            score += 100 / (center_dist + 1)
-
-            self.board[row][col] = player
-            score += self.evaluate_position(player) * 0.1
-            self.board[row][col] = 0
-
-            move_scores.append((score, move))
-
-        move_scores.sort(key=lambda x: x[0], reverse=True)
-        return [move for _, move in move_scores]
+        return None, []
 
     def find_best_move(self):
-        if self.move_count < 4:
-            opening_move = self._get_opening_move()
-            if opening_move:
-                return opening_move
+        """寻找最佳移动，根据难度采用不同策略"""
+        try:
+            print(f"AI决策开始，当前难度: {self.difficulty_level}")
+            
+            # Easy难度：主要使用随机策略
+            if self.difficulty_level == 1:
+                return self._make_easy_move()
+            
+            # Hard难度：使用强策略
+            elif self.difficulty_level == 3:
+                return self._make_hard_move()
+            
+            # Normal难度：使用平衡策略
+            else:
+                return self._make_normal_move()
+                
+        except Exception as e:
+            print(f"AI决策异常: {e}")
+            # 异常时根据难度选择备用策略
+            if self.difficulty_level == 1:
+                return self._pure_random_move()
+            else:
+                return self._make_safe_move()
 
-        urgent_move = self._check_urgent_situation()
-        if urgent_move:
-            return urgent_move
+    def _make_easy_move(self):
+        """Easy难度：主要随机，偶尔智能"""
+        try:
+            print("Easy AI开始决策")
+            valid_moves = self.get_valid_moves()
+            if not valid_moves:
+                return None
+            
+            # 95%概率完全随机
+            if random.random() < 0.95:
+                selected = random.choice(valid_moves)
+                print(f"Easy AI随机选择: {selected}")
+                return selected
+            
+            # 5%概率稍微智能一点
+            # 检查能否获胜
+            for move in valid_moves[:5]:
+                row, col = move
+                if self._is_winning_move_at_position(row, col, self.ai_player):
+                    print("Easy AI偶然发现获胜机会")
+                    return (row, col)
+            
+            # 检查是否必须防守
+            for move in valid_moves[:5]:
+                row, col = move
+                if self._is_winning_move_at_position(row, col, self.human_player):
+                    print("Easy AI偶然执行防守")
+                    return (row, col)
+            
+            # 否则随机选择
+            selected = random.choice(valid_moves)
+            print(f"Easy AI随机选择: {selected}")
+            return selected
+            
+        except Exception as e:
+            print(f"Easy AI异常: {e}")
+            return self._pure_random_move()
 
-        start_time = time.time()
+    def _make_normal_move(self):
+        """Normal难度：平衡的策略"""
+        try:
+            print("Normal AI开始决策")
+            
+            # 1. 检查获胜机会
+            winning_move = self._find_winning_move_simple()
+            if winning_move:
+                print("Normal AI发现获胜机会")
+                return winning_move
+            
+            # 2. 检查防守需要
+            blocking_move = self._find_critical_blocking_move()
+            if blocking_move:
+                print("Normal AI执行防守")
+                return blocking_move
+            
+            # 3. 使用简化搜索
+            try:
+                _, move = self.alpha_beta(min(2, self.SEARCH_DEPTH), -float('inf'), float('inf'), True)
+                if move and self._is_position_valid(move):
+                    print("Normal AI使用搜索决策")
+                    return move
+            except Exception as search_error:
+                print(f"Normal AI搜索异常: {search_error}")
+            
+            # 4. 选择最佳可用位置
+            valid_moves = [move for move in self.get_valid_moves() if self._is_position_valid(move)]
+            if valid_moves:
+                try:
+                    sorted_moves = self._sort_moves(valid_moves[:10], self.ai_player)
+                    if sorted_moves:
+                        print("Normal AI选择高分位置")
+                        return sorted_moves[0]
+                except Exception as sort_error:
+                    print(f"排序异常: {sort_error}")
+                
+                # 如果排序失败，随机选择
+                print("Normal AI随机选择")
+                return random.choice(valid_moves[:5])
+            
+            return None
+            
+        except Exception as e:
+            print(f"Normal AI异常: {e}")
+            return self._make_random_move()
+
+    def _make_hard_move(self):
+        """Hard难度：强AI策略（重新设计，确保稳定）"""
+        try:
+            print("Hard AI开始决策")
+            
+            # 1. 最高优先级：检查AI能否获胜
+            winning_move = self._find_winning_move_simple()
+            if winning_move:
+                print("Hard AI发现获胜机会！")
+                return winning_move
+
+            # 2. 第二优先级：阻止对手获胜
+            blocking_move = self._find_critical_blocking_move()
+            if blocking_move:
+                print("Hard AI执行关键防守")
+                return blocking_move
+
+            # 3. 第三优先级：创造威胁
+            threat_move = self._find_threat_creating_move()
+            if threat_move:
+                print("Hard AI创造威胁")
+                return threat_move
+
+            # 4. 第四优先级：阻止对手威胁
+            defense_move = self._find_defense_move()
+            if defense_move:
+                print("Hard AI防守威胁")
+                return defense_move
+
+            # 5. 使用深度搜索
+            try:
+                _, move = self.alpha_beta(self.SEARCH_DEPTH, -float('inf'), float('inf'), True)
+                if move and self._is_position_valid(move):
+                    print("Hard AI使用搜索决策")
+                    return move
+            except Exception as search_error:
+                print(f"搜索异常: {search_error}")
+
+            # 6. 战略位置选择
+            strategic_move = self._choose_strategic_position()
+            if strategic_move:
+                print("Hard AI选择战略位置")
+                return strategic_move
+
+            # 最后备选
+            safe_move = self._make_safe_move()
+            print("Hard AI使用安全策略")
+            return safe_move
+
+        except Exception as e:
+            print(f"Hard AI异常: {e}")
+            # 降级到普通AI
+            return self._make_normal_move()
+
+    def _make_random_move(self):
+        """简单的随机移动"""
+        try:
+            valid_moves = self.get_valid_moves()
+            if valid_moves:
+                return random.choice(valid_moves)
+            return None
+        except Exception as e:
+            print(f"随机移动异常: {e}")
+            return None
+
+    def _find_winning_move_simple(self):
+        """简单版本的获胜检测"""
+        valid_moves = self.get_valid_moves()
+        
+        for move in valid_moves[:10]:  # 只检查前10个位置，提高效率
+            row, col = move
+            if self._is_winning_move_at_position(row, col, self.ai_player):
+                return (row, col)
+        
+        return None
+
+    def _is_winning_move_at_position(self, row, col, player):
+        """检查在指定位置落子是否能获胜"""
+        # 临时放置棋子
+        self.board[row][col] = player
+        
+        # 检查四个方向
+        for dx, dy in self.DIRECTIONS:
+            count = 1  # 包含当前位置
+            
+            # 正方向计数
+            for i in range(1, 5):
+                x, y = row + i * dx, col + i * dy
+                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                    count += 1
+                else:
+                    break
+            
+            # 负方向计数
+            for i in range(1, 5):
+                x, y = row - i * dx, col - i * dy
+                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                    count += 1
+                else:
+                    break
+            
+            if count >= 5:
+                # 恢复棋盘
+                self.board[row][col] = 0
+                return True
+        
+        # 恢复棋盘
+        self.board[row][col] = 0
+        return False
+
+    def _find_critical_blocking_move(self):
+        """寻找关键阻挡位置"""
+        valid_moves = self.get_valid_moves()
+        
+        # 检查对手的直接获胜威胁
+        for move in valid_moves:
+            row, col = move
+            if self._is_winning_move_at_position(row, col, self.human_player):
+                return (row, col)
+        
+        return None
+
+    def _find_threat_creating_move(self):
+        """寻找能创造威胁的位置"""
+        valid_moves = self.get_valid_moves()
         best_move = None
-        best_score = -float('inf')
-        depth = self.SEARCH_DEPTH
-
-        while depth <= self.MAX_DEPTH and time.time() - start_time < self.TIME_LIMIT:
-            score, move = self.alpha_beta(depth, -float('inf'), float('inf'), True, start_time)
-
-            if move and (score > best_score or best_move is None):
-                best_score = score
+        max_threat = 0
+        
+        for move in valid_moves[:8]:  # 只检查前8个位置
+            if not self._is_position_valid(move):
+                continue
+                
+            row, col = move
+            threat_score = self._count_simple_threats(row, col, self.ai_player)
+            
+            if threat_score > max_threat:
+                max_threat = threat_score
                 best_move = move
-                self.best_move = move
-                self.max_score = score
-
-            depth += 1
-
-        if best_move:
+        
+        # 只有威胁足够大时才返回
+        if max_threat >= 3:
             return best_move
+        
+        return None
 
+    def _find_defense_move(self):
+        """寻找防守位置"""
+        valid_moves = self.get_valid_moves()
+        best_move = None
+        max_defense_score = 0
+        
+        for move in valid_moves:
+            row, col = move
+            defense_score = self._calculate_threat_score(row, col, self.human_player)
+            
+            if defense_score > max_defense_score:
+                max_defense_score = defense_score
+                best_move = move
+        
+        # 只有威胁足够大时才防守
+        if max_defense_score >= 2:
+            return best_move
+        
+        return None
+
+    def _count_simple_threats(self, row, col, player):
+        """计算简单威胁数量"""
+        # 临时放置棋子
+        self.board[row][col] = player
+        
+        threat_count = 0
+        
+        for dx, dy in self.DIRECTIONS:
+            count = 1  # 包含当前位置
+            
+            # 正方向计数
+            for i in range(1, 5):
+                x, y = row + i * dx, col + i * dy
+                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                    count += 1
+                else:
+                    break
+            
+            # 负方向计数
+            for i in range(1, 5):
+                x, y = row - i * dx, col - i * dy
+                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                    count += 1
+                else:
+                    break
+            
+            # 根据连子数量计算威胁
+            if count >= 4:
+                threat_count += 10  # 四连是大威胁
+            elif count >= 3:
+                threat_count += 3   # 三连需要关注
+            elif count >= 2:
+                threat_count += 1   # 二连稍微留意
+        
+        # 恢复棋盘
+        self.board[row][col] = 0
+        
+        return threat_count
+
+    def _calculate_threat_score(self, row, col, player):
+        """计算威胁分数"""
+        # 临时放置棋子
+        self.board[row][col] = player
+        
+        total_score = 0
+        
+        for dx, dy in self.DIRECTIONS:
+            count = 1  # 包含当前位置
+            
+            # 正方向计数
+            for i in range(1, 5):
+                x, y = row + i * dx, col + i * dy
+                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                    count += 1
+                else:
+                    break
+            
+            # 负方向计数
+            for i in range(1, 5):
+                x, y = row - i * dx, col - i * dy
+                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                    count += 1
+                else:
+                    break
+            
+            # 根据连子数量评分
+            if count >= 4:
+                total_score += 20  # 四连非常危险
+            elif count >= 3:
+                total_score += 5   # 三连需要关注
+            elif count >= 2:
+                total_score += 1   # 二连稍微留意
+        
+        # 恢复棋盘
+        self.board[row][col] = 0
+        
+        return total_score
+
+    def _choose_strategic_position(self):
+        """选择战略位置"""
         valid_moves = self.get_valid_moves()
         if not valid_moves:
             return None
-
-        return self._fallback_strategy(valid_moves)
-
-    def _get_opening_move(self):
-        board_state = self.board.tolist()
-        empty_count = np.count_nonzero(self.board == 0)
-
-        if empty_count == self.board_size * self.board_size:
-            return (self.board_size // 2, self.board_size // 2)
-        elif empty_count >= (self.board_size * self.board_size) - 2:
-            center = self.board_size // 2
-            return random.choice([
-                (center - 2, center - 2), (center + 2, center + 2),
-                (center - 2, center + 2), (center + 2, center - 2)
-            ])
-
-        return None
-
-    def _check_urgent_situation(self):
-        ai_win_move = self._find_winning_move(self.ai_player)
-        if ai_win_move:
-            return ai_win_move
-
-        human_win_move = self._find_winning_move(self.human_player)
-        if human_win_move:
-            return human_win_move
-
-        open_four_move = self._find_pattern_move(self.human_player, self.OPEN_FOUR)
-        if open_four_move:
-            return open_four_move
-
-        four_move = self._find_pattern_move(self.human_player, self.FOUR)
-        if four_move:
-            return four_move
-
-        double_open_three = self._find_double_pattern(self.human_player, self.OPEN_THREE)
-        if double_open_three:
-            return double_open_three
-
-        open_three_block = self._find_open_three_block()
-        if open_three_block:
-            return open_three_block
-
-        ai_open_four = self._find_pattern_move(self.ai_player, self.OPEN_FOUR)
-        if ai_open_four:
-            return ai_open_four
-
-        ai_double_three = self._find_double_pattern(self.ai_player, self.OPEN_THREE)
-        if ai_double_three:
-            return ai_double_three
-
-        block_move = self._find_adjacent_blocking_move()
-        if block_move:
-            return block_move
-
-        return None
-
-    def _find_winning_move(self, player):
-        for move in self.get_valid_moves():
-            i, j = move
-            self.board[i][j] = player
-            if self._check_five_in_row(i, j, player):
-                self.board[i][j] = 0
-                return move
-            self.board[i][j] = 0
-        return None
-
-    def _check_five_in_row(self, i, j, player):
-        for dx, dy in self.DIRECTIONS:
-            count = 1
-            for step in range(1, 5):
-                x, y = i + dx * step, j + dy * step
-                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
-                    count += 1
-                else:
-                    break
-            for step in range(1, 5):
-                x, y = i - dx * step, j - dy * step
-                if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
-                    count += 1
-                else:
-                    break
-            if count >= 5:
-                return True
-        return False
-
-    def _find_pattern_move(self, player, pattern_score):
-        target_score = pattern_score * 0.8
-        for move in self.get_valid_moves():
-            i, j = move
-            self.board[i][j] = player
-            score = self.evaluate_position(player)
-            self.board[i][j] = 0
-
-            if score >= target_score:
-                return move
-        return None
-
-    def _find_double_pattern(self, player, pattern_score):
-        for move in self.get_valid_moves():
-            i, j = move
-            self.board[i][j] = player
-            score = 0
-            direction_count = 0
-
-            for dx, dy in self.DIRECTIONS:
-                dir_score = self._evaluate_direction(i, j, dx, dy, player)
-                if dir_score >= pattern_score * 0.8:
-                    direction_count += 1
-                    score += dir_score
-
-            self.board[i][j] = 0
-
-            if direction_count >= 2 and score >= pattern_score * 1.5:
-                return move
-        return None
-
-    def _find_adjacent_blocking_move(self):
-        opponent = self.human_player
-        best_blocking_moves = []
-
-        for move in self.threat_space:
-            i, j = move
-            adjacent_to_opponent = False
-            for dx, dy in self.DIRECTIONS:
-                ni, nj = i + dx, j + dy
-                if 0 <= ni < self.board_size and 0 <= nj < self.board_size:
-                    if self.board[ni][nj] == opponent:
-                        adjacent_to_opponent = True
-                        break
-
-            if adjacent_to_opponent:
-                self.board[i][j] = opponent
-                threat_score = self.evaluate_position(opponent)
-                self.board[i][j] = 0
-
-                if threat_score >= self.THREE * 0.8:
-                    best_blocking_moves.append((threat_score, move))
-
-        if best_blocking_moves:
-            best_blocking_moves.sort(key=lambda x: x[0], reverse=True)
-            return best_blocking_moves[0][1]
-
-        return None
-
-    def _find_open_three_block(self):
-        opponent = self.human_player
-        best_block_moves = []
-
-        for move in self.get_valid_moves():
-            i, j = move
-            self.board[i][j] = opponent
-
-            is_open_three = False
-            for dx, dy in self.DIRECTIONS:
-                pattern = []
-                for k in range(-3, 4):
-                    x, y = i + k * dx, j + k * dy
-                    if 0 <= x < self.board_size and 0 <= y < self.board_size:
-                        pattern.append(self.board[x][y])
-                    else:
-                        pattern.append(-1)
-
-                pattern_str = ''.join(['1' if p == opponent else '0' if p == 0 else '2' for p in pattern])
-
-                # 检测更多活三变种模式
-                if '01110' in pattern_str or '010110' in pattern_str or '011010' in pattern_str:
-                    is_open_three = True
-                    break
-
-            self.board[i][j] = 0
-
-            if is_open_three:
-                self.board[i][j] = opponent
-                threat_score = self.evaluate_position(opponent)
-                self.board[i][j] = 0
-                best_block_moves.append((threat_score, move))
-
-        if best_block_moves:
-            best_block_moves.sort(key=lambda x: x[0], reverse=True)
-            return best_block_moves[0][1]
-
-        return None
-
-    def _fallback_strategy(self, valid_moves):
+        
+        # 优先选择中心附近且靠近已有棋子的位置
         center = self.board_size // 2
-        center_moves = [m for m in valid_moves
-                        if abs(m[0] - center) <= 3 and abs(m[1] - center) <= 3]
-        if center_moves:
-            return random.choice(center_moves)
-
-        return random.choice(valid_moves) if valid_moves else None
-
-    def make_decision(self, board_state=None):
-        if board_state is not None:
-            self.set_board_state(board_state)
-
-        best_move = self.find_best_move()
-
-        if not best_move:
-            valid_moves = self.get_valid_moves()
-            if valid_moves:
-                best_move = random.choice(valid_moves)
-            else:
-                return None
-
-        self.update_board(best_move[0], best_move[1], self.ai_player)
+        best_move = None
+        best_score = -1
+        
+        for move in valid_moves:
+            row, col = move
+            
+            # 计算到中心的距离（距离越近越好）
+            distance_to_center = abs(row - center) + abs(col - center)
+            center_score = max(0, 8 - distance_to_center)
+            
+            # 计算邻近棋子数量（有邻居更好）
+            neighbor_count = 0
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    x, y = row + dx, col + dy
+                    if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] != 0:
+                        neighbor_count += 1
+            
+            # 综合评分
+            total_score = center_score + neighbor_count * 2
+            
+            if total_score > best_score:
+                best_score = total_score
+                best_move = move
+        
         return best_move
 
-    def update_board(self, row, col, player):
-        if self.is_valid_position(row, col):
+    def _make_safe_move(self):
+        """安全移动（备用策略）"""
+        valid_moves = self.get_valid_moves()
+        if not valid_moves:
+            return None
+        
+        # 优先选择中心附近的位置
+        center = self.board_size // 2
+        best_move = None
+        min_distance = float('inf')
+        
+        for move in valid_moves:
+            row, col = move
+            distance = abs(row - center) + abs(col - center)
+            if distance < min_distance:
+                min_distance = distance
+                best_move = move
+        
+        return best_move
+
+    def _pure_random_move(self):
+        """纯随机移动"""
+        try:
+            valid_moves = self.get_valid_moves()
+            if valid_moves:
+                return random.choice(valid_moves)
+            return None
+        except Exception as e:
+            print(f"纯随机移动异常: {e}")
+            return None
+
+    def _is_position_valid(self, move):
+        """检查移动是否有效"""
+        if move is None:
+            return False
+        
+        try:
+            row, col = move
+            return (0 <= row < self.board_size and 
+                    0 <= col < self.board_size and 
+                    self.board[row][col] == 0)
+        except (TypeError, ValueError, IndexError):
+            return False
+
+    def _sort_moves(self, moves, player):
+        """对移动进行排序，优先选择更有价值的位置"""
+        if not moves:
+            return []
+        
+        move_scores = []
+        
+        for move in moves:
+            row, col = move
+            # 临时放置棋子
             self.board[row][col] = player
-            self.move_count += 1
+            
+            # 基础位置评估
+            score = self.evaluate_position()
+            
+            # 额外的位置价值评估
+            proximity_bonus = self._calculate_proximity_bonus(row, col)
+            strategic_bonus = self._calculate_strategic_bonus(row, col, player)
+            
+            total_score = score + proximity_bonus + strategic_bonus
+            
+            # 恢复棋盘
+            self.board[row][col] = 0
+            
+            move_scores.append((total_score, move))
+        
+        # 按分数降序排序
+        move_scores.sort(reverse=True, key=lambda x: x[0])
+        return [move for _, move in move_scores]
+
+    def _calculate_proximity_bonus(self, row, col):
+        """计算位置的邻近奖励"""
+        bonus = 0
+        center = self.board_size // 2
+        
+        # 中心位置奖励
+        distance_to_center = abs(row - center) + abs(col - center)
+        bonus += max(0, (center - distance_to_center)) * 10
+        
+        # 邻近已有棋子的奖励
+        neighbor_count = 0
+        for dr in [-1, 0, 1]:
+            for dc in [-1, 0, 1]:
+                if dr == 0 and dc == 0:
+                    continue
+                nr, nc = row + dr, col + dc
+                if (0 <= nr < self.board_size and 0 <= nc < self.board_size and 
+                    self.board[nr][nc] != 0):
+                    neighbor_count += 1
+        
+        bonus += neighbor_count * 50
+        return bonus
+
+    def _calculate_strategic_bonus(self, row, col, player):
+        """计算战略位置奖励"""
+        bonus = 0
+        
+        # 检查该位置是否能形成威胁
+        for dx, dy in self.DIRECTIONS:
+            line_strength = self._evaluate_line_strength(row, col, dx, dy, player)
+            bonus += line_strength * 20
+        
+        return bonus
+
+    def _evaluate_line_strength(self, row, col, dx, dy, player):
+        """评估在某个方向上的连线强度"""
+        count = 1  # 包含当前位置
+        
+        # 正方向计数
+        for i in range(1, 5):
+            x, y = row + i * dx, col + i * dy
+            if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                count += 1
+            else:
+                break
+        
+        # 负方向计数
+        for i in range(1, 5):
+            x, y = row - i * dx, col - i * dy
+            if 0 <= x < self.board_size and 0 <= y < self.board_size and self.board[x][y] == player:
+                count += 1
+            else:
+                break
+        
+        return count
+
+    def alpha_beta(self, depth, alpha, beta, maximizing_player):
+        """Alpha-Beta剪枝搜索"""
+        if depth == 0:
+            return self.evaluate_position(), None
+
+        valid_moves = self.get_valid_moves()
+        if not valid_moves:
+            return 0, None
+
+        # 限制搜索分支数以提高性能
+        max_branches = min(8, len(valid_moves))
+
+        if maximizing_player:
+            max_eval = -float('inf')
+            best_move = None
+            
+            # 安全地获取排序后的移动
+            try:
+                sorted_moves = self._sort_moves(valid_moves, self.ai_player)[:max_branches]
+            except Exception:
+                sorted_moves = valid_moves[:max_branches]
+            
+            for move in sorted_moves:
+                row, col = move
+                self.board[row][col] = self.ai_player
+                current_eval, _ = self.alpha_beta(depth - 1, alpha, beta, False)
+                self.board[row][col] = 0
+                
+                if current_eval > max_eval:
+                    max_eval = current_eval
+                    best_move = move
+                
+                alpha = max(alpha, current_eval)
+                if beta <= alpha:
+                    break  # Beta剪枝
+            
+            return max_eval, best_move
+        else:
+            min_eval = float('inf')
+            best_move = None
+            
+            # 安全地获取排序后的移动
+            try:
+                sorted_moves = self._sort_moves(valid_moves, self.human_player)[:max_branches]
+            except Exception:
+                sorted_moves = valid_moves[:max_branches]
+            
+            for move in sorted_moves:
+                row, col = move
+                self.board[row][col] = self.human_player
+                current_eval, _ = self.alpha_beta(depth - 1, alpha, beta, True)
+                self.board[row][col] = 0
+                
+                if current_eval < min_eval:
+                    min_eval = current_eval
+                    best_move = move
+                
+                beta = min(beta, current_eval)
+                if beta <= alpha:
+                    break  # Alpha剪枝
+            
+            return min_eval, best_move
+
+    def make_decision(self, board_state=None):
+        """AI决策入口方法"""
+        if board_state is not None:
+            self.set_board_state(board_state)
+        return self.find_best_move()
+
+    def update_board(self, row, col, player):
+        """更新棋盘状态"""
+        if 0 <= row < self.board_size and 0 <= col < self.board_size and self.board[row][col] == 0:
+            self.board[row][col] = player
             self._update_threat_space()
             return True
         return False
 
     def is_valid_position(self, row, col):
-        return (0 <= row < self.board_size and
-                0 <= col < self.board_size and
-                self.board[row][col] == 0)
+        """检查位置是否有效"""
+        return 0 <= row < self.board_size and 0 <= col < self.board_size and self.board[row][col] == 0
 
     def get_empty_positions(self):
-        return [(i, j) for i in range(self.board_size)
-                for j in range(self.board_size) if self.board[i][j] == 0]
+        """获取所有空位置"""
+        empty_positions = []
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                if self.board[row][col] == 0:
+                    empty_positions.append((row, col))
+        return empty_positions
 
     def reset_board(self):
         self.board = np.zeros((self.board_size, self.board_size), dtype=int)
-        self.move_count = 0
-        self.best_move = None
-        self.max_score = -float('inf')
         self.threat_space = set()
-        self.history_table.fill(0)
-        self.killer_moves = [None] * (self.MAX_DEPTH + 1)
-
-    def get_ai_info(self):
-        return {
-            'board_size': self.board_size,
-            'ai_player': self.ai_player,
-            'human_player': self.human_player,
-            'last_best_move': self.best_move,
-            'last_max_score': self.max_score,
-            'move_count': self.move_count,
-            'defense_mode': self.AI_is_in_defense_mode()
-        }
+        self.diagonal_threats.clear()
+        self.history_table.clear()  # 清空历史表
+        self.killer_moves = [[] for _ in range(10)]  # 重置杀手移动表
+        self.transposition_table.clear()  # 清空置换表

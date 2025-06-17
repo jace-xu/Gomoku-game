@@ -13,6 +13,7 @@ GRAY = (200, 200, 200)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+BEIGE = (245, 245, 220)  # 米白色
 
 class Button:
     """按钮类"""
@@ -58,18 +59,20 @@ class Button:
 
 class StartMenu:
     """开始菜单类"""
-    def __init__(self, screen_width=800, screen_height=600, title="Gomoku Game",background_image="assets/loadbackground.jpg"):
+    def __init__(self, screen_width=800, screen_height=600, title="Gomoku Game", background_image="assets/loadbackground.jpg", screen=None):
         """
         初始化开始菜单
         
         :param screen_width: 屏幕宽度
         :param screen_height: 屏幕高度
         :param title: 窗口标题
+        :param background_image: 背景图片路径
+        :param screen: 已存在的pygame screen对象，如果提供则重用，否则创建新的
         """
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.title = title
-        self.screen = None
+        self.screen = screen
         self.font = None
         self.title_font = None
         self.buttons = []
@@ -77,8 +80,14 @@ class StartMenu:
         self.choice = None
         self.background_image = background_image
         self.background = None
+        self.should_create_display = screen is None  # 标记是否需要创建新显示
         
-        self._init_display()
+        if self.should_create_display:
+            self._init_display()
+        else:
+            # 保存原始窗口标题，退出时恢复
+            self.original_title = pygame.display.get_caption()[0]
+        
         self._init_fonts()
         self._load_background()
         self._create_buttons()
@@ -89,11 +98,13 @@ class StartMenu:
         pygame.display.set_caption(self.title)
 
     def _init_fonts(self):
-        """初始化字体"""
+        """初始化字体，使用统一的字体加载方式"""
         try:
+            # 首先尝试加载中文字体
             self.font = pygame.font.Font("msyh.ttf", 36)
             self.title_font = pygame.font.Font("msyh.ttf", 48)
-        except:
+        except (OSError, pygame.error):
+            # 如果中文字体加载失败，使用默认字体
             self.font = pygame.font.Font(None, 36)
             self.title_font = pygame.font.Font(None, 48)
 
@@ -109,22 +120,22 @@ class StartMenu:
                    (self.screen_width - button_width) // 2, 
                    start_y, 
                    button_width, button_height, 
-                   color=GREEN, font=self.font),
+                   color=BEIGE, text_color=BLACK, font=self.font),
             Button("History", 
                    (self.screen_width - button_width) // 2, 
                    start_y + button_height + button_spacing, 
                    button_width, button_height, 
-                   color=BLUE, font=self.font),
+                   color=BEIGE, text_color=BLACK, font=self.font),
             Button("Settings", 
                    (self.screen_width - button_width) // 2, 
                    start_y + 2 * (button_height + button_spacing), 
                    button_width, button_height, 
-                   color=BLUE, font=self.font),
+                   color=BEIGE, text_color=BLACK, font=self.font),
             Button("Quit", 
                    (self.screen_width - button_width) // 2, 
                    start_y + 3 * (button_height + button_spacing), 
                    button_width, button_height, 
-                   color=RED, font=self.font)
+                   color=BEIGE, text_color=BLACK, font=self.font)
         ]
 
     def _load_background(self):
@@ -142,6 +153,10 @@ class StartMenu:
         
         :return: 用户选择 ("start", "history", "settings", "quit")
         """
+        # 如果重用现有screen，临时更改窗口标题
+        if not self.should_create_display:
+            pygame.display.set_caption(self.title)
+        
         clock = pygame.time.Clock()
         
         while self.running:
@@ -157,16 +172,24 @@ class StartMenu:
                         self.choice = choices[i]
                         self.running = False
 
+            # 完全清除屏幕并重绘
             self._draw()
             pygame.display.flip()
             clock.tick(60)
+        
+        # 如果重用现有screen，恢复原始窗口标题
+        if not self.should_create_display and hasattr(self, 'original_title'):
+            pygame.display.set_caption(self.original_title)
         
         return self.choice
 
     def _draw(self):
         """绘制菜单"""
+        # 确保完全清除之前的内容
         if self.background:
             self.screen.blit(self.background, (0, 0))
+        else:
+            self.screen.fill(WHITE)
         
         # 绘制标题
         title_surface = self.title_font.render("Gomoku Game", True, BLACK)
@@ -608,6 +631,32 @@ class GameUI:
         """
         self.start_menu = StartMenu(self.screen_width, self.screen_height, title)
         return self.start_menu.run()
+
+    def show_settings_menu(self, screen, move_logic, board_ui, assets_path="assets", background_image="assets/loadbackground.jpg"):
+        """
+        显示设置菜单
+        
+        :param screen: pygame窗口Surface对象
+        :param move_logic: 游戏逻辑对象
+        :param board_ui: 棋盘UI对象
+        :param assets_path: 资源文件夹路径
+        :param background_image: 背景图片路径
+        :return: bool，用户是否正常退出设置界面
+        """
+        try:
+            from ui.setting_ui import SettingUI
+            setting_ui = SettingUI(
+                screen=screen,
+                move_logic=move_logic,
+                board_ui=board_ui,
+                assets_path=assets_path,
+                background_image=background_image
+            )
+            setting_ui.show()
+            return True
+        except Exception as e:
+            print(f"显示设置界面失败: {e}")
+            return False
 
     def show_result_menu(self, result=None, results_file=None, display_time=3000):
         """
