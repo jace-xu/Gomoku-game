@@ -188,21 +188,44 @@ class GameDetailUI:
         self.screen.blit(time_text, (self.info_x, y_offset))
         y_offset += line_height
         
+        # 游戏模式
+        game_mode = self.game_data.get('game_mode', 'vs_ai')
+        mode_text = "VS AI" if game_mode == "vs_ai" else "VS Human"
+        mode_surface = self.font.render(f"Mode: {mode_text}", True, FONT_COLOR)
+        self.screen.blit(mode_surface, (self.info_x, y_offset))
+        y_offset += line_height
+        
         # 游戏结果
         result = self.game_data.get('result', None)
         if result is not None:
-            if result == 1:
-                result_text = "Result: Human Won"
-                result_color = (0, 150, 0)
-            elif result == 0:
-                result_text = "Result: AI Won"
-                result_color = (150, 0, 0)
-            elif result == 2:
-                result_text = "Result: Draw"
-                result_color = (0, 0, 150)
+            if game_mode == "vs_human":
+                # 双人对战模式
+                if result == 1:
+                    result_text = "Result: Black Won"
+                    result_color = (0, 150, 0)
+                elif result == 0:
+                    result_text = "Result: White Won"
+                    result_color = (150, 0, 0)
+                elif result == 2:
+                    result_text = "Result: Draw"
+                    result_color = (0, 0, 150)
+                else:
+                    result_text = "Result: Unknown"
+                    result_color = FONT_COLOR
             else:
-                result_text = "Result: Unknown"
-                result_color = FONT_COLOR
+                # AI对战模式
+                if result == 1:
+                    result_text = "Result: Human Won"
+                    result_color = (0, 150, 0)
+                elif result == 0:
+                    result_text = "Result: AI Won"
+                    result_color = (150, 0, 0)
+                elif result == 2:
+                    result_text = "Result: Draw"
+                    result_color = (0, 0, 150)
+                else:
+                    result_text = "Result: Unknown"
+                    result_color = FONT_COLOR
             
             result_surface = self.font.render(result_text, True, result_color)
             self.screen.blit(result_surface, (self.info_x, y_offset))
@@ -435,29 +458,51 @@ class HistoryUI:
             pygame.draw.rect(self.screen, (230, 230, 230), rect, border_radius=5)
             pygame.draw.rect(self.screen, (180, 180, 180), rect, 1, border_radius=5)
             
-            # 第一行：时间戳和游戏结果
+            # 第一行：时间戳和游戏模式
             ts = match_data.get('timestamp', 'Unknown Time')
             ts_text = self.small_font.render(f"Time: {ts}", True, FONT_COLOR)
             self.screen.blit(ts_text, (rect.x + 10, rect.y + 8))
 
+            # 显示游戏模式
+            game_mode = match_data.get('game_mode', 'vs_ai')
+            mode_text = "VS AI" if game_mode == "vs_ai" else "VS Human"
+            mode_surface = self.small_font.render(mode_text, True, (100, 100, 100))
+            self.screen.blit(mode_surface, (rect.x + 250, rect.y + 8))
+
             # 显示游戏结果（在第一行右侧）
             result = match_data.get('result', None)
             if result is not None:
-                if result == 1:
-                    result_text = "Human Won"
-                    result_color = (0, 150, 0)
-                elif result == 0:
-                    result_text = "AI Won"
-                    result_color = (150, 0, 0)
-                elif result == 2:
-                    result_text = "Draw"
-                    result_color = (0, 0, 150)
+                if game_mode == "vs_human":
+                    # 双人对战模式
+                    if result == 1:
+                        result_text = "Black Won"
+                        result_color = (0, 150, 0)
+                    elif result == 0:
+                        result_text = "White Won"
+                        result_color = (150, 0, 0)
+                    elif result == 2:
+                        result_text = "Draw"
+                        result_color = (0, 0, 150)
+                    else:
+                        result_text = "Unknown"
+                        result_color = FONT_COLOR
                 else:
-                    result_text = "Unknown"
-                    result_color = FONT_COLOR
+                    # AI对战模式
+                    if result == 1:
+                        result_text = "Human Won"
+                        result_color = (0, 150, 0)
+                    elif result == 0:
+                        result_text = "AI Won"
+                        result_color = (150, 0, 0)
+                    elif result == 2:
+                        result_text = "Draw"
+                        result_color = (0, 0, 150)
+                    else:
+                        result_text = "Unknown"
+                        result_color = FONT_COLOR
                 
                 result_surface = self.small_font.render(result_text, True, result_color)
-                self.screen.blit(result_surface, (rect.x + 300, rect.y + 8))
+                self.screen.blit(result_surface, (rect.x + 350, rect.y + 8))
 
             # 第二行：评语摘要
             comment = match_data.get('comment', 'No commentary available')

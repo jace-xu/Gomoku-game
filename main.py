@@ -15,6 +15,8 @@ from ui.setting_ui import SettingUI       # 设置UI模块
 
 # 导入动画模块
 from ui.animation_ui import create_animation_player
+# 导入模式选择模块
+from ui.mode_selection_ui import ModeSelectionUI
 
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
@@ -64,6 +66,10 @@ class GomokuGame:
         
         # 动画播放器
         self.animation_player = None
+        
+        # 游戏模式相关
+        self.game_mode = "vs_ai"  # 默认为AI对战模式 ("vs_ai" 或 "vs_human")
+        self.mode_selection_ui = None
         
         # 调用初始化方法
         self._init_game_components()
@@ -210,6 +216,9 @@ class GomokuGame:
         
         # 初始化动画播放器
         self._init_animation_player()
+        
+        # 初始化模式选择UI
+        self._init_mode_selection_ui()
 
     def _init_audio(self):
         """初始化游戏音频"""
@@ -236,6 +245,15 @@ class GomokuGame:
         """初始化动画播放器"""
         if self.screen:
             self.animation_player = create_animation_player(self.screen)
+
+    def _init_mode_selection_ui(self):
+        """初始化模式选择UI"""
+        if self.screen:
+            self.mode_selection_ui = ModeSelectionUI(
+                screen_width=self.screen.get_width(),
+                screen_height=self.screen.get_height(),
+                screen=self.screen
+            )
 
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
@@ -296,6 +314,10 @@ class GomokuGame:
         
         # 检查游戏状态和回合
         if not self.game_active:
+            return False
+        
+        # 双人对战模式下不需要AI
+        if self.game_mode == "vs_human":
             return False
         
         if self.board_state.current_player != self.ai_player:
@@ -378,7 +400,8 @@ class GomokuGame:
                 'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 'human_player': self.human_player,
                 'ai_player': self.ai_player,
-                'move_count': len(self.board_state.move_history)
+                'move_count': len(self.board_state.move_history),
+                'game_mode': self.game_mode  # 添加游戏模式信息
             }
             
             # 读取现有结果
@@ -405,7 +428,7 @@ class GomokuGame:
             print(f"保存游戏结果失败: {e}")
 
     def show_result(self):
-        """显示游戏结果 - 先播放动画，然后显示评语"""
+        """显示游戏结果 - 根据游戏模式决定是否播放动画"""
         
         # 从保存的结果获取
         if hasattr(self, 'current_game_result'):
@@ -414,8 +437,8 @@ class GomokuGame:
             result = self._get_latest_result()
         
         if result is not None:
-            # 1. 首先播放动画
-            if self.animation_player:
+            # 1. 只有AI对战模式才播放动画
+            if self.game_mode == "vs_ai" and self.animation_player:
                 try:
                     if result == 1:  # 人类获胜
                         print("播放胜利动画")
@@ -464,7 +487,12 @@ class GomokuGame:
                 safe_result = int(result) if result is not None else 0
                 safe_comment = str(comment) if comment else "这是一场精彩的对弈！"
                 
-                self.board_state.save_to_history(custom_comment=safe_comment, game_result=safe_result)
+                # 添加游戏模式信息到历史记录
+                self.board_state.save_to_history_with_mode(
+                    custom_comment=safe_comment, 
+                    game_result=safe_result,
+                    game_mode=self.game_mode
+                )
                 print("完整游戏记录已保存")
             except Exception as e:
                 print(f"保存完整记录失败: {e}")
@@ -555,8 +583,8 @@ class GomokuGame:
                 if game_end_display_time > 180:  # 显示3秒（180帧 / 60FPS）
                     break  # 退出游戏循环，返回主菜单
             
-            # AI回合处理
-            if (self.game_active and 
+            # AI回合处理（仅在AI对战模式下）
+            if (self.game_mode == "vs_ai" and self.game_active and 
                 self.board_state.current_player == self.ai_player):
                 
                 # 添加人工延迟，让AI看起来在"思考"
@@ -585,12 +613,22 @@ class GomokuGame:
                 choice = self.game_ui.show_start_menu()
                 
                 if choice == "start":
-                    # 开始游戏：进入游戏主循环
-                    self.run_game_loop()
+                    # 显示游戏模式选择界面
+                    mode_choice = self.show_mode_selection()
                     
-                    # 游戏结束后显示结果，等待用户确认
-                    if hasattr(self, 'game_should_end') and self.game_should_end:
-                        self.show_result()
+                    if mode_choice == "vs_ai":
+                        self.game_mode = "vs_ai"
+                        self.run_game_loop()
+                        # 游戏结束后显示结果，等待用户确认
+                        if hasattr(self, 'game_should_end') and self.game_should_end:
+                            self.show_result()
+                    elif mode_choice == "vs_human":
+                        self.game_mode = "vs_human"
+                        self.run_game_loop()
+                        # 游戏结束后显示结果，等待用户确认
+                        if hasattr(self, 'game_should_end') and self.game_should_end:
+                            self.show_result()
+                    # 如果选择"back"或其他，回到主菜单
                 
                 elif choice == "history":
                     # 显示历史记录
@@ -615,6 +653,28 @@ class GomokuGame:
             # 清理资源：关闭pygame窗口，退出程序
             # GameUI.quit() - 调用pygame.quit()和sys.exit()
             self.game_ui.quit()
+
+    def show_mode_selection(self):
+        """显示游戏模式选择界面"""
+        try:
+            # 确保游戏屏幕已初始化
+            if self.screen is None:
+                self._init_game_screen()
+            
+            # 确保模式选择UI已初始化
+            if self.mode_selection_ui is None:
+                self._init_mode_selection_ui()
+            
+            # 显示模式选择界面
+            if self.mode_selection_ui:
+                return self.mode_selection_ui.show()
+            else:
+                print("模式选择UI初始化失败")
+                return "back"
+                
+        except Exception as e:
+            print(f"显示模式选择界面失败: {e}")
+            return "back"
 
     def _draw_game(self):
         """绘制游戏画面 - 渲染棋盘、棋子和游戏信息"""
@@ -646,12 +706,28 @@ class GomokuGame:
         
         # 根据游戏状态显示不同的提示信息
         if game_info['is_game_over']:
-            if game_info['winner'] == self.human_player:
-                game_status = "You Win!"
-            elif game_info['winner'] == self.ai_player:
-                game_status = "AI Wins!"
+            if self.game_mode == "vs_human":
+                # 双人对战模式
+                if game_info['winner'] == 1:
+                    game_status = "Black Wins!"
+                elif game_info['winner'] == 2:
+                    game_status = "White Wins!"
+                else:
+                    game_status = "Draw!"
             else:
-                game_status = "Draw!"
+                # AI对战模式
+                if game_info['winner'] == self.human_player:
+                    game_status = "You Win!"
+                elif game_info['winner'] == self.ai_player:
+                    game_status = "AI Wins!"
+                else:
+                    game_status = "Draw!"
+        elif self.game_mode == "vs_human":
+            # 双人对战模式显示当前玩家
+            if self.board_state.current_player == 1:
+                game_status = "Black's Turn"
+            else:
+                game_status = "White's Turn"
         elif self.board_state.current_player == self.ai_player:
             game_status = "AI Thinking..."  # AI思考中提示
         
@@ -665,7 +741,7 @@ class GomokuGame:
         
         # BoardUI.update_display() - 更新屏幕显示（调用pygame.display.flip()）
         self.board_ui.update_display()
-    
+
     def _handle_events(self):
         """
         处理pygame事件 - 键盘输入和鼠标点击
