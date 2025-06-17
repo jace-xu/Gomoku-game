@@ -403,12 +403,12 @@ class ResultMenu:
             if result is None:
                 result = self.read_result(results_file)
             
-            # 根据结果显示不同的文本和颜色
+            # 根据结果显示不同的文本和颜色 - 统一使用棋子颜色
             if result == 0:
-                result_text = "You Lost!"
+                result_text = "White Won!"
                 text_color = RED
             elif result == 1:
-                result_text = "You Won!"
+                result_text = "Black Won!"
                 text_color = GREEN
             elif result == 2:
                 result_text = "Draw!"

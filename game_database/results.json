@@ -229,5 +229,45 @@
     "ai_player": 2,
     "move_count": 9,
     "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 17:48:25",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9,
+    "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 17:52:28",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 27,
+    "game_mode": "vs_ai"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 17:53:17",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9,
+    "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 17:54:11",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 13,
+    "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-17 17:54:58",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9,
+    "game_mode": "vs_human"
   }
 ]
