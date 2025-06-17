@@ -244,12 +244,13 @@ class GameDetailUI:
     
     def _draw_comment(self):
         """绘制评语"""
-        comment_y = self.info_y + 120
+        # 增加评语起始位置的Y坐标，避免与上方信息重叠
+        comment_y = self.info_y + 150  # 从120增加到150，增加30像素间距
         
         # 评语标题
         comment_title = self.font.render("AI Commentary:", True, FONT_COLOR)
         self.screen.blit(comment_title, (self.info_x, comment_y))
-        comment_y += 30
+        comment_y += 35  # 从30增加到35，标题与内容间距稍微增加
         
         # 评语内容
         comment = self.game_data.get('comment', 'No commentary available')
