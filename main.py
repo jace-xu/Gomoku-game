@@ -249,9 +249,11 @@ class GomokuGame:
     def _init_mode_selection_ui(self):
         """初始化模式选择UI"""
         if self.screen:
+            # 动态获取当前屏幕尺寸
+            screen_size = self.screen.get_size()
             self.mode_selection_ui = ModeSelectionUI(
-                screen_width=self.screen.get_width(),
-                screen_height=self.screen.get_height(),
+                screen_width=screen_size[0],
+                screen_height=screen_size[1],
                 screen=self.screen
             )
 
@@ -282,23 +284,35 @@ class GomokuGame:
         if not self.game_active:
             return False
         
-        # 检查是否轮到人类玩家 - BoardState.current_player属性获取当前应该下棋的玩家
-        if self.board_state.current_player != self.human_player:
-            print("现在不是你的回合！")
-            return False
+        # 双人对战模式：两个玩家都可以下棋，不需要检查是否轮到人类玩家
+        if self.game_mode == "vs_human":
+            # 双人模式：任何玩家都可以下棋（当前玩家是谁就是谁下）
+            pass
+        else:
+            # AI对战模式：检查是否轮到人类玩家
+            if self.board_state.current_player != self.human_player:
+                print("现在不是你的回合！")
+                return False
         
         # BoardState.move() - 尝试在指定位置落子
         # 该方法会自动检查位置有效性、更新棋盘状态、切换玩家回合
         # 返回True表示落子成功，False表示位置无效或已被占用
         if self.board_state.move(x, y):
-            print(f"人类玩家在 ({x}, {y}) 落子")
+            if self.game_mode == "vs_human":
+                # 双人模式显示当前下棋的玩家
+                player_name = "黑棋" if self.board_state.move_history[-1][2] == 1 else "白棋"
+                print(f"{player_name}玩家在 ({x}, {y}) 落子")
+            else:
+                print(f"人类玩家在 ({x}, {y}) 落子")
             
             # 播放落子音效
             self.board_ui.play_piece_sound()
             
-            # BoardState.get_board_copy() - 获取当前棋盘状态的副本
-            # GomokuAI.set_board_state() - 更新AI的内部棋盘状态，保持与游戏状态同步
-            self.ai.set_board_state(self.board_state.get_board_copy())
+            # 只在AI对战模式下更新AI状态
+            if self.game_mode == "vs_ai":
+                # BoardState.get_board_copy() - 获取当前棋盘状态的副本
+                # GomokuAI.set_board_state() - 更新AI的内部棋盘状态，保持与游戏状态同步
+                self.ai.set_board_state(self.board_state.get_board_copy())
             
             # BoardState.is_game_over() - 检查游戏是否结束（胜负已分或平局）
             if self.board_state.is_game_over():
@@ -661,9 +675,13 @@ class GomokuGame:
             if self.screen is None:
                 self._init_game_screen()
             
-            # 确保模式选择UI已初始化
-            if self.mode_selection_ui is None:
-                self._init_mode_selection_ui()
+            # 重新初始化模式选择UI以确保尺寸正确
+            screen_size = self.screen.get_size()
+            self.mode_selection_ui = ModeSelectionUI(
+                screen_width=screen_size[0],
+                screen_height=screen_size[1],
+                screen=self.screen
+            )
             
             # 显示模式选择界面
             if self.mode_selection_ui:

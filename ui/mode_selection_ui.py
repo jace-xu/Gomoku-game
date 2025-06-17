@@ -27,6 +27,10 @@ class ModeSelectionUI:
         # 保存原始窗口标题
         if self.screen:
             self.original_title = pygame.display.get_caption()[0]
+            # 动态更新屏幕尺寸
+            actual_size = self.screen.get_size()
+            self.screen_width = actual_size[0]
+            self.screen_height = actual_size[1]
         
         # 初始化字体
         self._init_fonts()
@@ -48,6 +52,7 @@ class ModeSelectionUI:
         """加载背景图片"""
         try:
             self.background = pygame.image.load("assets/loadbackground.jpg").convert()
+            # 动态适应当前屏幕尺寸
             self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
         except pygame.error:
             self.background = None
@@ -102,15 +107,15 @@ class ModeSelectionUI:
         
         # 绘制标题
         title_text = self.title_font.render("Select Game Mode", True, BLACK)
-        title_rect = title_text.get_rect(center=(self.screen_width // 2, 120))
+        title_rect = title_text.get_rect(center=(self.screen_width // 2, self.screen_height // 4))
         self.screen.blit(title_text, title_rect)
         
-        # 绘制按钮
-        button_width = 300
-        button_height = 80
-        button_spacing = 40
+        # 动态计算按钮位置和尺寸
+        button_width = min(300, self.screen_width - 100)
+        button_height = max(60, self.screen_height // 12)
+        button_spacing = max(30, self.screen_height // 20)
         center_x = self.screen_width // 2
-        start_y = self.screen_height // 2 - 60
+        start_y = self.screen_height // 2 - button_height - button_spacing // 2
         
         # VS AI 按钮
         vs_ai_rect = pygame.Rect(center_x - button_width // 2, start_y, button_width, button_height)
@@ -120,8 +125,10 @@ class ModeSelectionUI:
         vs_human_rect = pygame.Rect(center_x - button_width // 2, start_y + button_height + button_spacing, button_width, button_height)
         self._draw_button(vs_human_rect, "VS Human", BEIGE)
         
-        # Back 按钮
-        back_rect = pygame.Rect(50, self.screen_height - 100, 120, 50)
+        # Back 按钮 - 动态定位
+        back_width = min(120, self.screen_width // 6)
+        back_height = min(50, self.screen_height // 12)
+        back_rect = pygame.Rect(50, self.screen_height - back_height - 20, back_width, back_height)
         self._draw_button(back_rect, "Back", GRAY)
     
     def _draw_button(self, rect, text, color):
@@ -140,11 +147,12 @@ class ModeSelectionUI:
     
     def _get_clicked_button(self, mouse_pos):
         """获取点击的按钮"""
-        button_width = 300
-        button_height = 80
-        button_spacing = 40
+        # 动态计算按钮位置（与_draw方法保持一致）
+        button_width = min(300, self.screen_width - 100)
+        button_height = max(60, self.screen_height // 12)
+        button_spacing = max(30, self.screen_height // 20)
         center_x = self.screen_width // 2
-        start_y = self.screen_height // 2 - 60
+        start_y = self.screen_height // 2 - button_height - button_spacing // 2
         
         # VS AI 按钮
         vs_ai_rect = pygame.Rect(center_x - button_width // 2, start_y, button_width, button_height)
@@ -157,7 +165,9 @@ class ModeSelectionUI:
             return "vs_human"
         
         # Back 按钮
-        back_rect = pygame.Rect(50, self.screen_height - 100, 120, 50)
+        back_width = min(120, self.screen_width // 6)
+        back_height = min(50, self.screen_height // 12)
+        back_rect = pygame.Rect(50, self.screen_height - back_height - 20, back_width, back_height)
         if back_rect.collidepoint(mouse_pos):
             return "back"
         
