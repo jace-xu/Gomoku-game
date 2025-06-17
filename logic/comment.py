@@ -4,33 +4,64 @@ Uses AI API to generate game commentary and analysis
 """
 
 import json
+import os
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
+
+
+def load_env_file(env_path: str = ".env") -> None:
+    """
+    Load environment variables from .env file
+    
+    :param env_path: Path to .env file
+    """
+    try:
+        if os.path.exists(env_path):
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        os.environ[key.strip()] = value.strip()
+    except Exception as e:
+        print(f"Warning: Could not load .env file: {e}")
 
 
 class GameCommentator:
     """Gomoku game commentator that uses AI API to analyze games and generate commentary"""
     
-    def __init__(self, api_key: str = "sk-3be5fd048318406f9e9bd47a376aea71", 
-                 base_url: str = "https://api.deepseek.com",
-                 model: str = "deepseek-chat"):
+    def __init__(self, api_key: str = None, 
+                 base_url: str = None,
+                 model: str = None):
         """
         Initialize commentary generator
         
-        :param api_key: OpenAI API key
-        :param base_url: API base URL
-        :param model: Model name to use
+        :param api_key: OpenAI API key (optional, will read from env if not provided)
+        :param base_url: API base URL (optional, will read from env if not provided)
+        :param model: Model name to use (optional, will read from env if not provided)
         """
-        self.api_key = api_key
-        self.base_url = base_url
-        self.model = model
+        # Load environment variables
+        load_env_file()
+        
+        # Use provided values or fall back to environment variables
+        self.api_key = api_key or os.getenv('DEEPSEEK_API_KEY', '')
+        self.base_url = base_url or os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
+        self.model = model or os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
+        
+        if not self.api_key:
+            print("Warning: No API key found. Please set DEEPSEEK_API_KEY environment variable or create .env file")
+        
         self.client = None
         self._init_client()
     
     def _init_client(self) -> None:
         """Initialize OpenAI client"""
         try:
-            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            if self.api_key:
+                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            else:
+                print("Cannot initialize AI client: API key not found")
+                self.client = None
         except Exception as e:
             print(f"Failed to initialize AI client: {e}")
             self.client = None
@@ -133,7 +164,7 @@ class GameCommentator:
         
         :return: True if service is available, False otherwise
         """
-        return self.client is not None
+        return self.client is not None and bool(self.api_key)
     
     def get_fallback_comment(self, move_count: int = 0) -> str:
         """
