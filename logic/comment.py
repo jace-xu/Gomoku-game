@@ -89,7 +89,7 @@ class GameCommentator:
                 messages=[
                     {
                         "role": "system", 
-                        "content": f"You are a professional Gomoku player. Analyze the following game data and provide insightful commentary. Important: 1=black pieces (human player), 2=white pieces (AI player), 0=empty position. Focus on key moves and strategic plays. Give a single paragraph commentary without markdown formatting, just plain text.{winner_info} End your commentary by congratulating the winner - if human won, congratulate the player; if AI won, encourage the player to try again. Respond in English only."
+                        "content": f"You are a professional Gomoku player. Analyze the following game data and provide insightful commentary. Important: 1=black pieces (human player), 2=white pieces (AI player), 0=empty position. Focus on key moves and strategic plays. Give a single paragraph commentary without markdown formatting, just plain text.{winner_info} End your commentary by congratulating the winner - if human won, congratulate the player; if AI won, encourage the player to try again.不要出现ai和human的字眼，只说白棋方和黑棋方。 Respond in English only."
                     },
                     {
                         "role": "user", 
