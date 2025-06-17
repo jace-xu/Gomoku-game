@@ -13,6 +13,9 @@ from ui.board_ui import BoardUI           # 棋盘UI模块，负责棋盘绘制�
 from ui.past_ui import HistoryUI          # 历史记录UI模块
 from ui.setting_ui import SettingUI       # 设置UI模块
 
+# 导入动画模块
+from ui.animation_ui import create_animation_player
+
 class GomokuGame:
     """五子棋游戏主类 - 整合所有模块，管理游戏流程"""
     
@@ -58,6 +61,9 @@ class GomokuGame:
         self.current_background = None  # 当前选中的背景文件路径
         self.current_difficulty = 'Normal'  # 默认难度
         self._load_settings()  # 加载保存的设置
+        
+        # 动画播放器
+        self.animation_player = None
         
         # 调用初始化方法
         self._init_game_components()
@@ -201,6 +207,9 @@ class GomokuGame:
         
         # 初始化设置UI
         self._init_setting_ui()
+        
+        # 初始化动画播放器
+        self._init_animation_player()
 
     def _init_audio(self):
         """初始化游戏音频"""
@@ -222,6 +231,11 @@ class GomokuGame:
                 background_image="assets/loadbackground.jpg",
                 game_instance=self  # 传递游戏实例引用
             )
+
+    def _init_animation_player(self):
+        """初始化动画播放器"""
+        if self.screen:
+            self.animation_player = create_animation_player(self.screen)
 
     def start_game(self):
         """开始新游戏 - 重置所有游戏状态"""
@@ -391,7 +405,7 @@ class GomokuGame:
             print(f"保存游戏结果失败: {e}")
 
     def show_result(self):
-        """显示游戏结果 - 调用UI模块显示胜负结果和评语"""
+        """显示游戏结果 - 先播放动画，然后显示评语"""
         
         # 从保存的结果获取
         if hasattr(self, 'current_game_result'):
@@ -400,6 +414,20 @@ class GomokuGame:
             result = self._get_latest_result()
         
         if result is not None:
+            # 1. 首先播放动画
+            if self.animation_player:
+                try:
+                    if result == 1:  # 人类获胜
+                        print("播放胜利动画")
+                        self.animation_player.play_victory_animation()
+                    elif result == 0:  # AI获胜
+                        print("播放失败动画")
+                        self.animation_player.play_defeat_animation()
+                    # 平局(result==2)不播放动画
+                except Exception as e:
+                    print(f"播放动画失败: {e}")
+            
+            # 2. 然后显示评语窗口
             # 准备用于评语生成的数据，确保类型转换
             board_state_for_comment = [[int(cell) for cell in row] for row in self.board_state.board]
             move_history_for_comment = [[int(move[0]), int(move[1]), int(move[2])] for move in self.board_state.move_history]
