@@ -266,6 +266,64 @@ class BoardState:
         except IOError as err:
             print(f"写入历史记录异常: {err}")
 
+    def save_to_history_with_mode(self, history_path: str = None, custom_comment: str = None, game_result: int = None, game_mode: str = "vs_ai") -> None:
+        """
+        保存当前棋局信息到历史记录文件，包含游戏模式信息
+
+        :param history_path: 历史文件路径
+        :param custom_comment: 自定义评语
+        :param game_result: 游戏结果 (0=AI获胜, 1=人类获胜, 2=平局)
+        :param game_mode: 游戏模式 ("vs_ai" 或 "vs_human")
+        :return: None
+        """
+        # 如果未指定路径，则默认存储到相对路径的 game_database 目录
+        if history_path is None:
+            history_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "game_database", "history.json"
+            )
+
+        # 确保目录存在
+        os.makedirs(os.path.dirname(history_path), exist_ok=True)
+
+        # 使用提供的评语，避免重复生成
+        if custom_comment and custom_comment != "评语生成中...":
+            comment_text = custom_comment
+        else:
+            comment_text = "这是一场精彩的对弈！"
+
+        record = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "comment": comment_text,
+            "board": [row[:] for row in self.board],
+            "moves": [list(move) for move in self.move_history],
+            "result": game_result,
+            "game_mode": game_mode  # 添加游戏模式信息
+        }
+
+        # 快速读取和写入，减少I/O时间
+        try:
+            # 读取原有历史记录
+            data = []
+            if os.path.exists(history_path):
+                try:
+                    with open(history_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if not isinstance(data, list):
+                            data = []
+                except (json.JSONDecodeError, IOError):
+                    data = []
+
+            # 追加本次记录
+            data.append(record)
+
+            # 写回文件
+            with open(history_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                
+        except IOError as err:
+            print(f"写入历史记录异常: {err}")
+
     def update_latest_history_comment(self, comment_text: str, history_path: str = None) -> None:
         """
         更新最新历史记录的评语
