@@ -137,7 +137,7 @@ class GomokuGame:
         # GameUI.show_result_menu() - 显示游戏结果
         self.game_ui = GameUI(self.screen_width, self.screen_height)
         
-        # 初始化BoardState：棋盘状态和游戏规则管理器
+        # 初始化BoardState：棋盘状态和游戏规则管理
         # 参数说明：size=棋盘大小，ai_player=AI执子颜色，human_player=人类执子颜色，first_player=先手方
         self.board_state = BoardState(
             size=self.board_size,
