@@ -39,6 +39,10 @@
 │   ├── BGM/                  # 背景音乐（mp3）
 │   └── backgrounds/          # 棋盘皮肤（png, jpg等）
 ├── requirements.txt          # 依赖库清单
+├── .env                      # API Key储存文件
+├── main                      # 游戏主入口
+├── LICENSE                   # 开源许可证信息（我们将本作业在github上进行了开源）
+├──.gitignore                 # git忽略信息
 └── README.md                 # 项目说明（本文件）
 ```
 
@@ -88,6 +92,8 @@
 pip install -r requirements.txt
 ```
 ## 注意，开发时使用的python环境为3.12.7
+## 如果AI无法生成评论，大概率是我们购买的Deepseek tokens用完了
+## 请您立即联系2661567025@qq.com，我们将立即充值
 ---
 
 ## 🚀 启动方式
@@ -95,6 +101,10 @@ pip install -r requirements.txt
 1. **📥 克隆文件并进入目录**
     ```bash
     copy Gomoku-game file
+    ```
+    或者
+    ```bash
+    git clone https://github.com/jace-xu/Gomoku-game.git
     ```
 
 2. **⬇️ 安装依赖**
@@ -123,8 +133,7 @@ pip install -r requirements.txt
   - 如想要自定义，可自行在对应文件位置上传动画帧/背景/音效资源，菜单背景与落子目前暂只支持单一选择，BGM部分支持选择两个曲目，棋盘背景支持多图片文件选择。
 
 - **🔗 AI评语与API配置**  
-  - 默认评语生成模块使用 Deepseek Chat API（或兼容 OpenAI API），如需自定义请在 `logic/comment.py` 中修改相关配置（如 API KEY 和 base_url）
-
+  - 默认评语生成模块使用 Deepseek Chat API
 ---
 
 ## 🎯 典型操作流程
@@ -141,10 +150,12 @@ pip install -r requirements.txt
 ## ⚠️ 已知问题与注意事项
 
 - **⏳ AI评语生成需耐心等待**  
-  对局结束后，AI评语生成较慢时请耐心等待（有进度提示/打字机动画），**建议评语完全显示后再点击退出**，否则本局历史记录的评语可能保存为"评语生成中..."或丢失。
+  对局结束后，AI评语生成较慢时请耐心等待（有进度提示/打字机动画），**请在评语完全显示后再点击退出**，否则本局历史记录的评语可能保存为"评语生成中..."或丢失。
+
+### ❗务必注意，请在评语完全显示后再点击退出
 
 - **🎵 音频上传限制**
-  - `setting_ui.py`只支持读取`assets/BGM/`中的前两首曲目。
+  - `setting_ui.py`只支持读取`assets/BGM/`中的前3首曲目。
 
 - **💻 平台兼容性**
   - 项目已在 Windows 环境测试，Mac 下如遇字体或音频问题请尝试更换字体文件或格式
@@ -159,6 +170,7 @@ pip install -r requirements.txt
   - 字体 msyh.ttf 缺失时，部分中文界面会回退为默认字体，导致乱码或排版错乱。
   - `settings.json`、`history.json`、`results.json` 采用 JSON 存储，若多人协作或异常退出时并发写入，可能导致文件损坏、数据丢失，进而无法启动或加载历史对局。
 
+### 务必注意，请使用界面上的按钮和游戏交互，否则可能出现bug
 ---
 
 ## 🏗️ 主要模块说明

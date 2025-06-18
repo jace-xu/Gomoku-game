@@ -70,5 +70,29 @@
     "ai_player": 2,
     "move_count": 9,
     "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-18 21:39:37",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9,
+    "game_mode": "vs_ai"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-18 21:40:26",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9,
+    "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-18 21:53:26",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 9,
+    "game_mode": "vs_human"
   }
 ]
