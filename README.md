@@ -40,7 +40,6 @@
 │   └── backgrounds/          # 棋盘皮肤（png, jpg等）
 ├── requirements.txt          # 依赖库清单
 ├── .env                      # API Key储存文件
-├── main                      # 游戏主入口
 ├── LICENSE                   # 开源许可证信息（我们将本作业在github上进行了开源）
 ├──.gitignore                 # git忽略信息
 └── README.md                 # 项目说明（本文件）
