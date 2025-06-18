@@ -73,14 +73,14 @@ class BoardUI:
         # 尝试加载字体
         for font_path in font_paths:
             try:
-                self.button_font = pygame.font.Font(font_path, 24)
+                self.button_font = pygame.font.Font(font_path, 18)  # 从24调小到18
                 print(f"成功加载字体: {font_path}")
                 return
             except (OSError, pygame.error):
                 continue
         
         # 如果所有字体都加载失败，使用默认字体
-        self.button_font = pygame.font.Font(None, 24)
+        self.button_font = pygame.font.Font(None, 18)  # 从24调小到18
         print("所有字体加载失败，使用默认字体")
 
     def _load_default_audio(self):
@@ -308,23 +308,41 @@ class BoardUI:
         :param move_count: 已下棋步数
         :param game_status: 游戏状态文本
         """
-        font = pygame.font.Font(None, 24)
+        # 使用Calibri字体初始化游戏信息字体
+        font_paths = [
+            "assets/calibrib.ttf",   # Calibri Bold
+            "assets/calibri.ttf",    # Calibri Regular
+            "assets/calibril.ttf",   # Calibri Light
+        ]
+        
+        info_font = None
+        for font_path in font_paths:
+            try:
+                info_font = pygame.font.Font(font_path, 18)  # 从24调小到18
+                break
+            except (OSError, pygame.error):
+                continue
+        
+        # 如果加载失败，使用默认字体
+        if info_font is None:
+            info_font = pygame.font.Font(None, 18)  # 从24调小到18
+        
         info_y = 10
         
         # 当前玩家
         player_text = f"Current: {'Black' if current_player == 1 else 'White'}"
-        player_surface = font.render(player_text, True, self.line_color)
+        player_surface = info_font.render(player_text, True, self.line_color)
         self.screen.blit(player_surface, (10, info_y))
         
         # 步数
         move_text = f"Moves: {move_count}"
-        move_surface = font.render(move_text, True, self.line_color)
+        move_surface = info_font.render(move_text, True, self.line_color)
         self.screen.blit(move_surface, (150, info_y))
         
         # 游戏状态
         if game_status:
-            status_surface = font.render(game_status, True, (255, 0, 0))
-            self.screen.blit(status_surface, (10, info_y + 25))
+            status_surface = info_font.render(game_status, True, (255, 0, 0))
+            self.screen.blit(status_surface, (10, info_y + 20))  # 从25调小到20，减少行间距
 
     def highlight_position(self, x, y, color=(0, 255, 0)):
         """
