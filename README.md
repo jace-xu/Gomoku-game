@@ -124,7 +124,6 @@ pip install -r requirements.txt
 
 - **🔗 AI评语与API配置**  
   - 默认评语生成模块使用 Deepseek Chat API（或兼容 OpenAI API），如需自定义请在 `logic/comment.py` 中修改相关配置（如 API KEY 和 base_url）
-  - 若无互联网/接口不可用，系统自动采用本地模板评语
 
 ---
 
@@ -132,7 +131,7 @@ pip install -r requirements.txt
 
 1. ▶️ 运行 `main.py`，进入主菜单
 2. 🎮 选择"Start Game"，进入模式选择（AI对战或双人对战）
-3. 🖱️ 通过鼠标点击棋盘下棋，悔棋/设置等按钮位于界面侧边
+3. 🖱️ 通过鼠标点击棋盘下棋
 4. 🏆 游戏结束后，自动弹出动画和评语结算界面
 5. 📊 结算后，历史记录已自动保存，可在主菜单选择"History"复盘
 6. ⚙️ 在"Settings"中可切换皮肤、音量、难度、BGM等个性化配置
