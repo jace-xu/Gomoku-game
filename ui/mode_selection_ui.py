@@ -40,13 +40,31 @@ class ModeSelectionUI:
         self._load_background()
     
     def _init_fonts(self):
-        """初始化字体"""
-        try:
-            self.title_font = pygame.font.Font("msyh.ttf", 48)
-            self.button_font = pygame.font.Font("msyh.ttf", 36)
-        except (OSError, pygame.error):
-            self.title_font = pygame.font.Font(None, 48)
-            self.button_font = pygame.font.Font(None, 36)
+        """初始化字体，使用项目中的Calibri字体"""
+        # 定义字体路径（相对路径）- 使用Calibri系列字体
+        font_paths = [
+            "assets/calibrib.ttf",   # Calibri Bold
+            "assets/calibri.ttf",    # Calibri Regular
+            "assets/calibril.ttf",   # Calibri Light
+            "assets/calibriz.ttf",   # Calibri Light Italic
+            "assets/calibrii.ttf",   # Calibri Italic
+            "assets/calibrili.ttf"   # Calibri Light Italic
+        ]
+        
+        # 尝试加载字体
+        for font_path in font_paths:
+            try:
+                self.title_font = pygame.font.Font(font_path, 48)
+                self.button_font = pygame.font.Font(font_path, 36)
+                print(f"成功加载字体: {font_path}")
+                return
+            except (OSError, pygame.error):
+                continue
+        
+        # 如果所有字体都加载失败，使用默认字体
+        self.title_font = pygame.font.Font(None, 48)
+        self.button_font = pygame.font.Font(None, 36)
+        print("所有字体加载失败，使用默认字体")
     
     def _load_background(self):
         """加载背景图片"""

@@ -237,7 +237,7 @@ class GomokuGame:
                 move_logic=self.ai,
                 board_ui=self.board_ui,
                 assets_path="assets",
-                background_image="assets/loadbackground.jpg",
+                background_image="assets/loadbackground.jpg",  # 使用相对路径
                 game_instance=self  # 传递游戏实例引用
             )
 

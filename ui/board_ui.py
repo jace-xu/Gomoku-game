@@ -59,13 +59,29 @@ class BoardUI:
         self._load_default_audio()
 
     def _init_button_font(self):
-        """初始化按钮字体，使用统一的字体加载方式"""
-        try:
-            # 首先尝试加载中文字体
-            self.button_font = pygame.font.Font("msyh.ttf", 24)
-        except (OSError, pygame.error):
-            # 如果中文字体加载失败，使用默认字体
-            self.button_font = pygame.font.Font(None, 24)
+        """初始化按钮字体，使用项目中的Calibri字体"""
+        # 定义字体路径（相对路径）- 使用Calibri系列字体
+        font_paths = [
+            "assets/calibrib.ttf",   # Calibri Bold
+            "assets/calibri.ttf",    # Calibri Regular
+            "assets/calibril.ttf",   # Calibri Light
+            "assets/calibriz.ttf",   # Calibri Light Italic
+            "assets/calibrii.ttf",   # Calibri Italic
+            "assets/calibrili.ttf"   # Calibri Light Italic
+        ]
+        
+        # 尝试加载字体
+        for font_path in font_paths:
+            try:
+                self.button_font = pygame.font.Font(font_path, 24)
+                print(f"成功加载字体: {font_path}")
+                return
+            except (OSError, pygame.error):
+                continue
+        
+        # 如果所有字体都加载失败，使用默认字体
+        self.button_font = pygame.font.Font(None, 24)
+        print("所有字体加载失败，使用默认字体")
 
     def _load_default_audio(self):
         """加载默认音频文件"""
