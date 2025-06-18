@@ -68,17 +68,33 @@ class GameDetailUI:
         self.info_y = self.board_y
 
     def _init_fonts(self):
-        """初始化字体，使用与其他UI组件一致的方式"""
-        try:
-            # 首先尝试加载中文字体
-            self.font = pygame.font.Font("msyh.ttf", 24)
-            self.small_font = pygame.font.Font("msyh.ttf", 18)
-            self.title_font = pygame.font.Font("msyh.ttf", 32)
-        except (OSError, pygame.error):
-            # 如果中文字体加载失败，使用默认字体
-            self.font = pygame.font.Font(None, 24)
-            self.small_font = pygame.font.Font(None, 18)
-            self.title_font = pygame.font.Font(None, 32)
+        """初始化字体，使用项目中的Calibri字体"""
+        # 定义字体路径（相对路径）- 使用Calibri系列字体
+        font_paths = [
+            "assets/calibrib.ttf",   # Calibri Bold
+            "assets/calibri.ttf",    # Calibri Regular
+            "assets/calibril.ttf",   # Calibri Light
+            "assets/calibriz.ttf",   # Calibri Light Italic
+            "assets/calibrii.ttf",   # Calibri Italic
+            "assets/calibrili.ttf"   # Calibri Light Italic
+        ]
+        
+        # 尝试加载字体
+        for font_path in font_paths:
+            try:
+                self.font = pygame.font.Font(font_path, 24)
+                self.small_font = pygame.font.Font(font_path, 18)
+                self.title_font = pygame.font.Font(font_path, 32)
+                print(f"成功加载字体: {font_path}")
+                return
+            except (OSError, pygame.error):
+                continue
+        
+        # 如果所有字体都加载失败，使用默认字体
+        self.font = pygame.font.Font(None, 24)
+        self.small_font = pygame.font.Font(None, 18)
+        self.title_font = pygame.font.Font(None, 32)
+        print("所有字体加载失败，使用默认字体")
     
     def run(self):
         """运行详细记录查看界面"""
@@ -302,8 +318,7 @@ class HistoryUI:
         :return: None
         """
         self.screen = disp_surface
-        self.font = pygame.font.Font(None, 28)      # 标题字体
-        self.small_font = pygame.font.Font(None, 16) # 列表字体
+        self._init_fonts()  # 使用统一的字体初始化
         self.history_data = self.load_history_data()        # 历史对局数据列表
         self.scroll_offset = 0                              # 当前滚动偏移
         self.item_height = 120                              # 每条历史快照高度（增加以容纳三行）
@@ -314,6 +329,33 @@ class HistoryUI:
         
         # 创建返回按钮
         self.return_button = Button("Back", 10, 10, 100, 40, (70, 130, 180))
+
+    def _init_fonts(self):
+        """初始化字体，使用项目中的Calibri字体"""
+        # 定义字体路径（相对路径）- 使用Calibri系列字体
+        font_paths = [
+            "assets/calibrib.ttf",   # Calibri Bold
+            "assets/calibri.ttf",    # Calibri Regular
+            "assets/calibril.ttf",   # Calibri Light
+            "assets/calibriz.ttf",   # Calibri Light Italic
+            "assets/calibrii.ttf",   # Calibri Italic
+            "assets/calibrili.ttf"   # Calibri Light Italic
+        ]
+        
+        # 尝试加载字体
+        for font_path in font_paths:
+            try:
+                self.font = pygame.font.Font(font_path, 28)
+                self.small_font = pygame.font.Font(font_path, 16)
+                print(f"成功加载字体: {font_path}")
+                return
+            except (OSError, pygame.error):
+                continue
+        
+        # 如果所有字体都加载失败，使用默认字体
+        self.font = pygame.font.Font(None, 28)
+        self.small_font = pygame.font.Font(None, 16)
+        print("所有字体加载失败，使用默认字体")
 
     @staticmethod
     def load_history_data() -> List[Dict]:
