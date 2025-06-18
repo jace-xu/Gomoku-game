@@ -1,106 +1,18 @@
 [
   {
     "result": 1,
-    "timestamp": "2025-06-17 18:43:17",
+    "timestamp": "2025-06-18 22:03:51",
     "human_player": 1,
     "ai_player": 2,
-    "move_count": 13,
+    "move_count": 17,
+    "game_mode": "vs_ai"
+  },
+  {
+    "result": 0,
+    "timestamp": "2025-06-18 22:06:44",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 24,
     "game_mode": "vs_human"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-17 23:07:05",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_human"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-17 23:09:11",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_ai"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-17 23:57:10",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_human"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 10:55:28",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 13,
-    "game_mode": "vs_ai"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 10:57:23",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_ai"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 11:02:08",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_ai"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 11:03:49",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 11,
-    "game_mode": "vs_ai"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 21:06:04",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_human"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 21:39:37",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_ai"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 21:40:26",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_human"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 21:53:26",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 9,
-    "game_mode": "vs_human"
-  },
-  {
-    "result": 1,
-    "timestamp": "2025-06-18 22:01:03",
-    "human_player": 1,
-    "ai_player": 2,
-    "move_count": 19,
-    "game_mode": "vs_ai"
   }
 ]
