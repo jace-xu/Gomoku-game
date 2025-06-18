@@ -1,6 +1,6 @@
 """
-Gomoku Game Commentary Generation Module
-Uses AI API to generate game commentary and analysis
+五子棋游戏评语生成模块
+使用AI API生成游戏评语和分析
 """
 
 import json
@@ -11,9 +11,9 @@ from openai import OpenAI
 
 def load_env_file(env_path: str = ".env") -> None:
     """
-    Load environment variables from .env file
+    从.env文件加载环境变量
     
-    :param env_path: Path to .env file
+    :param env_path: .env文件路径
     """
     try:
         if os.path.exists(env_path):
@@ -28,22 +28,22 @@ def load_env_file(env_path: str = ".env") -> None:
 
 
 class GameCommentator:
-    """Gomoku game commentator that uses AI API to analyze games and generate commentary"""
+    """使用AI API分析游戏并生成评语的五子棋游戏评论员"""
     
     def __init__(self, api_key: str = None, 
                  base_url: str = None,
                  model: str = None):
         """
-        Initialize commentary generator
+        初始化评语生成器
         
-        :param api_key: OpenAI API key (optional, will read from env if not provided)
-        :param base_url: API base URL (optional, will read from env if not provided)
-        :param model: Model name to use (optional, will read from env if not provided)
+        :param api_key: OpenAI API密钥（可选，如果未提供则从环境变量读取）
+        :param base_url: API基础URL（可选，如果未提供则从环境变量读取）
+        :param model: 要使用的模型名称（可选，如果未提供则从环境变量读取）
         """
-        # Load environment variables
+        # 加载环境变量
         load_env_file()
         
-        # Use provided values or fall back to environment variables
+        # 使用提供的值或回退到环境变量
         self.api_key = api_key or os.getenv('DEEPSEEK_API_KEY', '')
         self.base_url = base_url or os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
         self.model = model or os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
@@ -55,7 +55,7 @@ class GameCommentator:
         self._init_client()
     
     def _init_client(self) -> None:
-        """Initialize OpenAI client"""
+        """初始化OpenAI客户端"""
         try:
             if self.api_key:
                 self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
@@ -68,10 +68,10 @@ class GameCommentator:
     
     def read_json_file(self, file_path: str) -> Optional[Dict[str, Any]]:
         """
-        Read JSON file
+        读取JSON文件
         
-        :param file_path: JSON file path
-        :return: Parsed JSON data, None if failed
+        :param file_path: JSON文件路径
+        :return: 解析后的JSON数据，失败时返回None
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -83,10 +83,10 @@ class GameCommentator:
     
     def generate_comment_from_file(self, file_path: str) -> str:
         """
-        Generate commentary from JSON file
+        从JSON文件生成评语
         
-        :param file_path: History record JSON file path
-        :return: Generated commentary text
+        :param file_path: 历史记录JSON文件路径
+        :return: 生成的评语文本
         """
         json_data = self.read_json_file(file_path)
         if json_data is None:
@@ -96,10 +96,10 @@ class GameCommentator:
     
     def generate_comment_from_data(self, game_data: Dict[str, Any]) -> str:
         """
-        Generate commentary from game data
+        从游戏数据生成评语
         
-        :param game_data: Game data dictionary
-        :return: Generated commentary text
+        :param game_data: 游戏数据字典
+        :return: 生成的评语文本
         """
         if self.client is None:
             return "AI commentary service unavailable"
@@ -138,12 +138,12 @@ class GameCommentator:
     
     def generate_comment(self, board_state: List[List[int]], move_history: List[List[int]], game_result: int = None) -> str:
         """
-        Generate commentary based on board state and move history
+        基于棋盘状态和走棋历史生成评语
         
-        :param board_state: Board state 2D array
-        :param move_history: Move history list, each item is [x, y, player]
-        :param game_result: Game result (0=AI win, 1=human win, 2=draw)
-        :return: Generated commentary text
+        :param board_state: 棋盘状态二维数组
+        :param move_history: 走棋历史列表，每项为 [x, y, player]
+        :param game_result: 游戏结果（0=AI获胜，1=人类获胜，2=平局）
+        :return: 生成的评语文本
         """
         game_data = {
             "board": board_state,
@@ -160,18 +160,18 @@ class GameCommentator:
     
     def is_available(self) -> bool:
         """
-        Check if commentary generation service is available
+        检查评语生成服务是否可用
         
-        :return: True if service is available, False otherwise
+        :return: 如果服务可用返回True，否则返回False
         """
         return self.client is not None and bool(self.api_key)
     
     def get_fallback_comment(self, move_count: int = 0) -> str:
         """
-        Get fallback commentary (used when AI service is unavailable)
+        获取备用评语（当AI服务不可用时使用）
         
-        :param move_count: Number of moves played
-        :return: Fallback commentary text
+        :param move_count: 已下棋步数
+        :return: 备用评语文本
         """
         fallback_comments = [
             "Excellent game!",
@@ -190,11 +190,11 @@ class GameCommentator:
             return random.choice(fallback_comments)
 
 
-# Create default instance to maintain backward compatibility
+# 创建默认实例以保持向后兼容性
 _default_commentator = None
 
 def get_default_commentator() -> GameCommentator:
-    """Get default commentator instance"""
+    """获取默认评论员实例"""
     global _default_commentator
     if _default_commentator is None:
         _default_commentator = GameCommentator()
@@ -202,19 +202,19 @@ def get_default_commentator() -> GameCommentator:
 
 def generate_comment(board_state: List[List[int]], move_history: List[List[int]], game_result: int = None) -> str:
     """
-    Convenience function: generate game commentary
-    Maintains compatibility with existing interface
+    便利函数：生成游戏评语
+    保持与现有接口的兼容性
     
-    :param board_state: Board state
-    :param move_history: Move history
-    :param game_result: Game result (0=AI win, 1=human win, 2=draw)
-    :return: Commentary text
+    :param board_state: 棋盘状态
+    :param move_history: 走棋历史
+    :param game_result: 游戏结果（0=AI获胜，1=人类获胜，2=平局）
+    :return: 评语文本
     """
     commentator = get_default_commentator()
     return commentator.generate_comment(board_state, move_history, game_result)
 
-# For compatibility, keep original function interface
+# 为了兼容性，保留原始函数接口
 def read_json_file(file_path: str) -> Optional[Dict[str, Any]]:
-    """Backward compatible file reading function"""
+    """向后兼容的文件读取函数"""
     commentator = get_default_commentator()
     return commentator.read_json_file(file_path)

@@ -94,5 +94,13 @@
     "ai_player": 2,
     "move_count": 9,
     "game_mode": "vs_human"
+  },
+  {
+    "result": 1,
+    "timestamp": "2025-06-18 22:01:03",
+    "human_player": 1,
+    "ai_player": 2,
+    "move_count": 19,
+    "game_mode": "vs_ai"
   }
 ]
